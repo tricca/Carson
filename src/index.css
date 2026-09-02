@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,500&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  --bg: #c9d8c1;
+  --surface: #fbfbf4;
+  --stripe: #edf0e0;
+  --ink: #1e3d2e;
+  --muted: #5b6b58;
+  --line: #b9c7ae;
+  --stamp: #a63a2c;
+  --gold: #b4862c;
+  --paid: #3f7a55;
+  --on-solid: #fbfbf4;
+  --cal-pulizia: #2f6690;
+  --cal-stiro: #5a8a3c;
+  --cal-ferie: #c9a227;
+  --cal-malattia: #a63a2c;
+  --shadow: 0 1px 2px rgba(30, 61, 46, 0.08), 0 6px 16px -8px rgba(30, 61, 46, 0.25);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--stamp);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
