@@ -4,8 +4,8 @@
     {
       "name": "carson-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "6000", "--strictPort"],
-      "port": 6000
+      "runtimeArgs": ["run", "dev", "--", "--port", "6001", "--strictPort"],
+      "port": 6001
     }
   ]
 }

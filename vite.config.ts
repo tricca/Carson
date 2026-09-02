@@ -10,7 +10,8 @@ const BASE_PATH = '/Carson/'
 export default defineConfig({
   base: BASE_PATH,
   server: {
-    port: 6000,
+    // 6000 è bloccata dai browser Chromium (ERR_UNSAFE_PORT, storicamente riservata a X11).
+    port: 6001,
     strictPort: true,
   },
   plugins: [
