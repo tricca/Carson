@@ -43,6 +43,11 @@ export function Dashboard() {
 
   return (
     <>
+      <div className="carson-header">
+        <div className="wordmark">Carson</div>
+        <div className="rule" />
+      </div>
+
       <div className="ledger-card torn">
         <p className="card-title">Riepilogo del mese</p>
         <p className="card-sub">
