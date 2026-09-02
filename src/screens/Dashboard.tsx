@@ -11,6 +11,7 @@ import { formatDataEstesa, formatEuro, formatGiorni, toLocalIsoDate, MONTH_LABEL
 
 export function Dashboard() {
   const data = useAppStore((s) => s.data)
+  const brandingImageUrl = useAppStore((s) => s.brandingImageUrl)
   const { worker, timeEntries, quarterlyContributions, payments } = data
 
   const today = new Date()
@@ -44,6 +45,11 @@ export function Dashboard() {
   return (
     <>
       <div className="carson-header">
+        {brandingImageUrl && (
+          <div className="carson-portrait">
+            <img src={brandingImageUrl} alt="" />
+          </div>
+        )}
         <div className="wordmark">Carson</div>
         <div className="rule" />
       </div>

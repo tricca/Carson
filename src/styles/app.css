@@ -950,6 +950,22 @@ button.link {
   text-align: center;
   padding: 2px 0 14px;
 }
+.carson-portrait {
+  width: 104px;
+  height: 104px;
+  margin: 0 auto 10px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 3px solid var(--surface);
+  box-shadow: var(--shadow), 0 0 0 2px var(--carson-blue-light);
+}
+.carson-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 .carson-header .wordmark {
   font-family: 'Pinyon Script', cursive;
   font-size: 58px;

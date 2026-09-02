@@ -3,11 +3,16 @@ import type { AppData, Payment, PaymentCategory, TimeEntry, TimeEntryType, Worke
 import { createSampleData } from '../domain/sampleData'
 import { addRateChange, type NewRateInput } from '../domain/calculations/rates'
 import { loadInitialData, saveData, onSyncStatusChange, type SyncStatus } from '../storage/syncEngine'
+import { isConnected } from '../dropbox/authClient'
+import { downloadBrandingImage } from '../dropbox/dataStore'
 
 interface AppState {
   data: AppData
   ready: boolean
   syncStatus: SyncStatus
+  /** Immagine personale opzionale da /branding/carson-icon.png nel Dropbox dell'utente;
+   * null se non connesso o se il file non esiste. Mai nel repository o nel deploy pubblico. */
+  brandingImageUrl: string | null
   init: () => Promise<void>
   addTimeEntry: (entry: { date: string; type: TimeEntryType; hours: number; note?: string }) => void
   deleteTimeEntry: (id: string) => void
@@ -38,11 +43,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   data: createSampleData(),
   ready: false,
   syncStatus: 'not_connected',
+  brandingImageUrl: null,
 
   init: async () => {
     onSyncStatusChange((status) => set({ syncStatus: status }))
     const data = await loadInitialData(get().data)
     set({ data, ready: true })
+
+    if (isConnected()) {
+      void downloadBrandingImage().then((url) => {
+        if (url) set({ brandingImageUrl: url })
+      })
+    }
   },
 
   addTimeEntry: (entry) => {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
 import { Sheet } from './Sheet'
@@ -32,8 +32,15 @@ export function AppShell() {
   const syncStatus = useAppStore((s) => s.syncStatus)
   const workerName = useAppStore((s) => fullName(s.data.worker))
   const addTimeEntry = useAppStore((s) => s.addTimeEntry)
+  const brandingImageUrl = useAppStore((s) => s.brandingImageUrl)
 
   const title = TITLES[location.pathname] ?? 'Carson'
+
+  useEffect(() => {
+    if (!brandingImageUrl) return
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+    if (link) link.href = brandingImageUrl
+  }, [brandingImageUrl])
 
   function handleSyncBadgeClick() {
     if (syncStatus === 'not_connected') void startLogin()

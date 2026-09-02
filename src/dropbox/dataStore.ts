@@ -4,6 +4,7 @@ import { getValidAccessToken } from './authClient'
 
 const DATA_FILE_PATH = '/data/housekeeping-data.json'
 const ATTACHMENTS_DIR = '/allegati'
+const BRANDING_IMAGE_PATH = '/branding/carson-icon.png'
 
 export class DropboxConflictError extends Error {
   constructor() {
@@ -97,4 +98,21 @@ export async function getAttachmentTemporaryLink(path: string): Promise<string> 
   const dbx = await getClient()
   const res = await dbx.filesGetTemporaryLink({ path })
   return res.result.link
+}
+
+/**
+ * Immagine personale opzionale in `/branding/carson-icon.png` nella cartella app
+ * dell'utente su Dropbox — mai nel repository, quindi mai pubblicata su GitHub Pages.
+ * Ritorna null se non connesso o se il file non esiste (nessun errore, è puramente
+ * decorativa: l'app deve funzionare identica senza).
+ */
+export async function downloadBrandingImage(): Promise<string | null> {
+  try {
+    const dbx = await getClient()
+    const res = await dbx.filesDownload({ path: BRANDING_IMAGE_PATH })
+    const fileBlob = (res.result as unknown as { fileBlob: Blob }).fileBlob
+    return URL.createObjectURL(fileBlob)
+  } catch {
+    return null
+  }
 }
