@@ -9,6 +9,10 @@ const BASE_PATH = '/Carson/'
 
 export default defineConfig({
   base: BASE_PATH,
+  server: {
+    port: 6000,
+    strictPort: true,
+  },
   plugins: [
     react(),
     VitePWA({
