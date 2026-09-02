@@ -90,7 +90,10 @@
 
 /* ---------- screens ---------- */
 .screen-area {
-  padding: 18px 16px 100px;
+  /* deve superare l'ingombro reale di bottom-nav + FAB (che include la safe area
+     su iPhone con home indicator), non un valore fisso: altrimenti l'ultimo
+     contenuto in fondo allo scroll finisce nascosto dietro al pulsante. */
+  padding: 18px 16px calc(150px + env(safe-area-inset-bottom));
   min-height: calc(100vh - 76px);
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -780,7 +783,9 @@ button.link {
 .fab {
   position: fixed;
   right: calc(50% - 215px + 18px);
-  bottom: 70px;
+  /* deve restare sopra alla bottom-nav (che cresce con la safe area su iPhone
+     con home indicator), non a un'altezza fissa che la ignora */
+  bottom: calc(72px + env(safe-area-inset-bottom));
   z-index: 31;
   width: 54px;
   height: 54px;
