@@ -63,21 +63,20 @@ export async function loadInitialData(seed: AppData): Promise<AppData> {
     return merged
   } catch (err) {
     if (err instanceof DropboxSchemaMismatchError) {
-      // In sviluppo attivo lo schema dati cambia più spesso del previsto: un file remoto
-      // scritto con una forma precedente non è recuperabile campo per campo, quindi lo
-      // sovrascriviamo con i dati locali (già nella forma corrente) invece di restare
-      // bloccati in errore ad ogni modifica di schema.
-      console.warn('File Dropbox con schema obsoleto: verrà sovrascritto con i dati locali correnti.', err)
-      try {
-        const rev = await uploadData(localData, err.rev)
-        await writeCache(localData, rev, false)
-        setStatus('synced')
-        return localData
-      } catch (uploadErr) {
-        console.error('Impossibile sovrascrivere il file Dropbox con schema obsoleto:', uploadErr)
-        setStatus('error')
-        return localData
-      }
+      // Non sovrascrivere MAI il file remoto in automatico: su un dispositivo appena
+      // connesso (cache locale vuota) i "dati locali" sono il seed di esempio, e un
+      // upload automatico qui cancellerebbe silenziosamente i dati reali degli altri
+      // dispositivi dietro un semplice console.warn che nessuno vede (successo reale:
+      // così sono stati persi temporaneamente i dati sincronizzati da un altro device,
+      // recuperati poi dalla cronologia versioni di Dropbox). In caso di mismatch,
+      // restare bloccati in stato di errore è sempre più sicuro di un upload silenzioso:
+      // mostra localData senza toccare il remoto, l'utente lo vede dal pallino di sync.
+      console.error(
+        'File Dropbox con schema non compatibile con questa versione dell\'app: sincronizzazione sospesa per non rischiare di sovrascrivere dati reali. Aggiorna l\'app su tutti i dispositivi alla stessa versione.',
+        err,
+      )
+      setStatus('error')
+      return localData
     }
     console.error('Sincronizzazione iniziale con Dropbox fallita:', err)
     setStatus('error')
@@ -129,8 +128,14 @@ async function pushToRemote(data: AppData, rev: string | null): Promise<void> {
         }
       } catch (downloadErr) {
         if (downloadErr instanceof DropboxSchemaMismatchError) {
-          console.warn('File Dropbox con schema obsoleto in fase di conflitto: verrà sovrascritto.', downloadErr)
-          await pushToRemote(data, downloadErr.rev)
+          // Vedi la nota in loadInitialData: mai sovrascrivere il remoto in automatico su un
+          // mismatch di schema, nemmeno qui durante la risoluzione di un conflitto — rischia
+          // di cancellare dati reali scritti da un altro dispositivo con schema diverso.
+          console.error(
+            'File Dropbox con schema non compatibile durante un conflitto: salvataggio sospeso per non rischiare di sovrascrivere dati reali. Aggiorna l\'app su tutti i dispositivi alla stessa versione.',
+            downloadErr,
+          )
+          setStatus('error')
           return
         }
         console.error('Salvataggio su Dropbox fallito:', downloadErr)
