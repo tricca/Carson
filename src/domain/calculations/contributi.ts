@@ -1,4 +1,10 @@
-import type { TimeEntry, RateHistoryEntry, ContributionRateTable, ContributionRegime } from '../types'
+import type {
+  TimeEntry,
+  RateHistoryEntry,
+  ContributionRateTable,
+  ContributionRegime,
+  QuarterlyContribution,
+} from '../types'
 import { getRateAt } from './rates'
 import { PAID_TYPES } from './common'
 
@@ -85,4 +91,35 @@ export function calcolaContributoTrimestrale(
   const amountWorker = amountTotal - amountEmployer
 
   return { periodHours, regime, fixedAmountPerHour, amountTotal, amountEmployer, amountWorker }
+}
+
+/**
+ * Un trimestre "da_pagare" ricalcola sempre ore e importi dalle timeEntries correnti:
+ * i valori salvati sono solo l'ultimo snapshot noto e vanno considerati stale finché
+ * non risulta pagato. Un trimestre "pagato" resta invece congelato al valore versato.
+ */
+export function contributoTrimestraleAggiornato(
+  contribution: QuarterlyContribution,
+  timeEntries: TimeEntry[],
+  rateHistory: RateHistoryEntry[],
+  rateTables: ContributionRateTable[],
+): QuarterlyContribution {
+  if (contribution.status !== 'da_pagare') return contribution
+
+  const calcolato = calcolaContributoTrimestrale(
+    timeEntries,
+    rateHistory,
+    rateTables,
+    contribution.year,
+    contribution.quarter,
+  )
+
+  return {
+    ...contribution,
+    periodHours: calcolato.periodHours,
+    regime: calcolato.regime,
+    amountTotal: calcolato.amountTotal,
+    amountEmployer: calcolato.amountEmployer,
+    amountWorker: calcolato.amountWorker,
+  }
 }

@@ -91,15 +91,25 @@ export function createSampleData(): AppData {
           validFrom: '2026-01-01',
           validTo: null,
           regimeFino24h: [
-            { minHourlyPay: 0, maxHourlyPay: 8, fixedAmountPerHour: 0.65 },
-            { minHourlyPay: 8, maxHourlyPay: 9.53, fixedAmountPerHour: 0.87 },
-            { minHourlyPay: 9.53, maxHourlyPay: null, fixedAmountPerHour: 1.5 },
+            { minHourlyPay: 0, maxHourlyPay: 9.62, fixedAmountPerHour: 1.7 },
+            { minHourlyPay: 9.62, maxHourlyPay: 11.71, fixedAmountPerHour: 1.92 },
+            { minHourlyPay: 11.71, maxHourlyPay: null, fixedAmountPerHour: 2.34 },
           ],
-          regimeOltre24h: { fixedAmountPerHour: 1.03 },
+          regimeOltre24h: { fixedAmountPerHour: 1.24 },
           employerShareRatio: 0.75,
-          sourceNote: 'Valori indicativi da verificare su inps.it prima dell\'uso reale',
-          inpsLink: 'https://www.inps.it',
+          sourceNote:
+            'Importi 2026 (circolare INPS n. 9/2026, con CUAF). Le fasce fino/oltre 9,61€ e 11,70€ sono confermate dalla comunicazione ufficiale INPS; la fascia intermedia, il regime oltre 24h e il riparto datore/lavoratrice sono ricostruiti da fonti terze: verificare su inps.it prima dell\'uso reale. Caso cuafExempt non distinto.',
+          inpsLink:
+            'https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.lavoratori-domestici-i-contributi-dovuti-per-il-2026.html',
         },
+      ],
+      // Coefficiente ufficiale pubblicato ogni dicembre (1,5% fisso + 75% inflazione ISTAT FOI),
+      // applicato al fondo TFR accantonato al 31/12 dell'anno precedente. Aggiungere l'anno
+      // corrente qui non appena INPS/ISTAT pubblica il coefficiente definitivo di dicembre.
+      tfrRevaluationRates: [
+        { year: 2023, rate: 0.01944162 },
+        { year: 2024, rate: 0.02320017 },
+        { year: 2025, rate: 0.02311148 },
       ],
     },
     attachments: [],

@@ -148,8 +148,20 @@ export const ContributionRateTableSchema = z.object({
 })
 export type ContributionRateTable = z.infer<typeof ContributionRateTableSchema>
 
+/** Coefficiente ufficiale di rivalutazione TFR (1,5% fisso + 75% inflazione ISTAT FOI) per
+ * l'anno `year`, da applicare al fondo TFR accantonato al 31/12 dell'anno precedente. */
+export const TfrRevaluationRateSchema = z.object({
+  year: z.number().int(),
+  rate: z.number(),
+})
+export type TfrRevaluationRate = z.infer<typeof TfrRevaluationRateSchema>
+
 export const SettingsSchema = z.object({
   contributionRateTables: z.array(ContributionRateTableSchema),
+  // .default([]): un file su Dropbox scritto prima dell'introduzione di questo campo non lo
+  // contiene. Deve restare valido contro lo schema corrente — vedi la nota in syncEngine.ts
+  // sul perché un mismatch di schema non deve mai più risolversi sovrascrivendo il remoto.
+  tfrRevaluationRates: z.array(TfrRevaluationRateSchema).default([]),
 })
 
 export const AppDataSchema = z.object({

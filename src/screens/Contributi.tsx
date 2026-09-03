@@ -3,7 +3,8 @@ import { useAppStore } from '../store/useAppStore'
 import { Sheet } from '../components/Sheet'
 import { Stamp } from '../components/Stamp'
 import { WeeklyRecap } from '../components/WeeklyRecap'
-import { getRateTableAt } from '../domain/calculations/contributi'
+import { calcolaContributoTrimestrale, contributoTrimestraleAggiornato, getRateTableAt } from '../domain/calculations/contributi'
+import { calcolaTfrRivalutato } from '../domain/calculations/tfr'
 import { formatDataEstesa, formatEuro, formatOre, toLocalIsoDate } from '../domain/format'
 import type { QuarterlyContribution } from '../domain/types'
 
@@ -19,14 +20,26 @@ function todayIso(): string {
 export function Contributi() {
   const contributions = useAppStore((s) => s.data.quarterlyContributions)
   const timeEntries = useAppStore((s) => s.data.timeEntries)
+  const rateHistory = useAppStore((s) => s.data.worker.rateHistory)
   const rateTables = useAppStore((s) => s.data.settings.contributionRateTables)
+  const tfrRevaluationRates = useAppStore((s) => s.data.settings.tfrRevaluationRates)
   const markContributionPaid = useAppStore((s) => s.markContributionPaid)
+  const correggiContributoStorico = useAppStore((s) => s.correggiContributoStorico)
   const [target, setTarget] = useState<QuarterlyContribution | null>(null)
   const [paidAt, setPaidAt] = useState(todayIso())
+  const [correctionTarget, setCorrectionTarget] = useState<QuarterlyContribution | null>(null)
 
-  const ordinati = [...contributions].sort((a, b) =>
-    a.year !== b.year ? b.year - a.year : b.quarter - a.quarter,
-  )
+  const ordinati = contributions
+    .map((c) => contributoTrimestraleAggiornato(c, timeEntries, rateHistory, rateTables))
+    .sort((a, b) => (a.year !== b.year ? b.year - a.year : b.quarter - a.quarter))
+
+  const annoCorrente = new Date().getFullYear()
+  const primoAnno = Math.min(...rateHistory.map((r) => Number(r.validFrom.slice(0, 4))), annoCorrente)
+  const tfr = calcolaTfrRivalutato(timeEntries, rateHistory, tfrRevaluationRates, primoAnno, annoCorrente)
+  const anniChiusiSenzaCoefficiente: number[] = []
+  for (let y = primoAnno; y < annoCorrente; y++) {
+    if (!(tfrRevaluationRates ?? []).some((r) => r.year === y)) anniChiusiSenzaCoefficiente.push(y)
+  }
 
   function apriConferma(c: QuarterlyContribution) {
     setPaidAt(todayIso())
@@ -38,6 +51,22 @@ export function Contributi() {
     markContributionPaid(target.id, paidAt)
     setTarget(null)
   }
+
+  function confermaCorrezione() {
+    if (!correctionTarget) return
+    correggiContributoStorico(correctionTarget.id)
+    setCorrectionTarget(null)
+  }
+
+  const ricalcoloCorrezione = correctionTarget
+    ? calcolaContributoTrimestrale(
+        timeEntries,
+        rateHistory,
+        rateTables,
+        correctionTarget.year,
+        correctionTarget.quarter,
+      )
+    : null
 
   return (
     <>
@@ -74,7 +103,9 @@ export function Contributi() {
             <p className="pay-amount mono" style={{ marginTop: 16 }}>
               {formatEuro(c.amountTotal)}
             </p>
-            <p className="card-sub">Importo trimestrale totale</p>
+            <p className="card-sub">
+              Importo trimestrale totale{c.status === 'da_pagare' ? ' · versi tu entrambe le quote' : ''}
+            </p>
 
             {c.status === 'da_pagare' && (
               <div className="split-row">
@@ -83,7 +114,7 @@ export function Contributi() {
                   <div className="v mono">{formatEuro(c.amountEmployer)}</div>
                 </div>
                 <div className="split-box">
-                  <div className="l">Quota lavoratrice</div>
+                  <div className="l">Quota lavoratrice (a tuo carico)</div>
                   <div className="v mono">{formatEuro(c.amountWorker)}</div>
                 </div>
               </div>
@@ -111,9 +142,50 @@ export function Contributi() {
                 </button>
               </div>
             )}
+
+            {c.status === 'pagato' && (
+              <div className="pay-actions">
+                <button type="button" className="btn ghost auto" onClick={() => setCorrectionTarget(c)}>
+                  Correggi con ore reali
+                </button>
+              </div>
+            )}
           </div>
         )
       })}
+
+      <div className="eyebrow-standalone" style={{ marginTop: 24 }}>TFR</div>
+      <div className="ledger-card" style={{ marginTop: 16 }}>
+        <p className="card-title">Trattamento di fine rapporto</p>
+        <p className="card-sub">Maturato al {formatDataEstesa(todayIso())}</p>
+        <div className="stat-grid" style={{ marginTop: 14 }}>
+          <div>
+            <div className="stat-label">TFR rivalutato dal {primoAnno}</div>
+            <div className="stat-value mono" style={{ fontSize: 18 }}>{formatEuro(tfr.totale)}</div>
+          </div>
+          <div>
+            <div className="stat-label">Quota {annoCorrente} (non ancora rivalutata)</div>
+            <div className="stat-value mono" style={{ fontSize: 18 }}>{formatEuro(tfr.quotaAnnoCorrente)}</div>
+          </div>
+        </div>
+        <details className="disclosure">
+          <summary>Dettaglio calcolo</summary>
+          <div className="dbody">
+            TFR annuo = (retribuzione annua lorda + rateo tredicesima) / 13,5 (art. 2120 c.c.). Il fondo degli anni
+            chiusi è rivalutato col coefficiente ufficiale di ciascun anno (1,5% fisso + 75% inflazione ISTAT FOI,
+            applicato al fondo al 31/12 dell&apos;anno precedente) — effetto rivalutazione finora:{' '}
+            {formatEuro(tfr.effettoRivalutazione)}. La quota dell&apos;anno in corso non è mai rivalutabile prima
+            che il coefficiente di dicembre venga pubblicato.
+            {anniChiusiSenzaCoefficiente.length > 0 && (
+              <>
+                {' '}
+                Coefficiente mancante per {anniChiusiSenzaCoefficiente.join(', ')}: quegli anni non sono stati
+                rivalutati, aggiorna <code>tfrRevaluationRates</code> non appena disponibile.
+              </>
+            )}
+          </div>
+        </details>
+      </div>
 
       <Sheet open={target !== null} onClose={() => setTarget(null)} title={target ? `Registra versamento — ${target.quarter}° trimestre` : ''}>
         {target && (
@@ -129,6 +201,43 @@ export function Contributi() {
               </button>
               <button type="button" className="btn primary" onClick={confermaVersamento}>
                 Conferma versamento
+              </button>
+            </div>
+          </>
+        )}
+      </Sheet>
+
+      <Sheet
+        open={correctionTarget !== null}
+        onClose={() => setCorrectionTarget(null)}
+        title={correctionTarget ? `Correggi ${correctionTarget.quarter}° trimestre ${correctionTarget.year}` : ''}
+      >
+        {correctionTarget && ricalcoloCorrezione && (
+          <>
+            <p className="card-sub" style={{ marginBottom: 14 }}>
+              Ricalcola ore e importo dalle ore effettivamente registrate nel trimestre, lasciando invariati stato
+              e data di versamento già salvati.
+            </p>
+            <div className="split-row">
+              <div className="split-box">
+                <div className="l">Salvato ora</div>
+                <div className="v mono">
+                  {formatOre(correctionTarget.periodHours)} · {formatEuro(correctionTarget.amountTotal)}
+                </div>
+              </div>
+              <div className="split-box">
+                <div className="l">Dopo la correzione</div>
+                <div className="v mono">
+                  {formatOre(ricalcoloCorrezione.periodHours)} · {formatEuro(ricalcoloCorrezione.amountTotal)}
+                </div>
+              </div>
+            </div>
+            <div className="sheet-actions">
+              <button type="button" className="btn ghost auto" onClick={() => setCorrectionTarget(null)}>
+                Annulla
+              </button>
+              <button type="button" className="btn primary" onClick={confermaCorrezione}>
+                Conferma correzione
               </button>
             </div>
           </>
