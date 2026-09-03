@@ -1,8 +1,17 @@
 import { create } from 'zustand'
-import type { AppData, Payment, PaymentCategory, TimeEntry, TimeEntryType, Worker } from '../domain/types'
+import type {
+  AppData,
+  ContributionRegime,
+  Payment,
+  PaymentCategory,
+  QuarterlyContribution,
+  TimeEntry,
+  TimeEntryType,
+  Worker,
+} from '../domain/types'
 import { createSampleData } from '../domain/sampleData'
 import { addRateChange, type NewRateInput } from '../domain/calculations/rates'
-import { calcolaContributoTrimestrale, contributoTrimestraleAggiornato } from '../domain/calculations/contributi'
+import { addContributionRateChange, type NewContributionRateInput } from '../domain/calculations/contributionRates'
 import { loadInitialData, saveData, onSyncStatusChange, type SyncStatus } from '../storage/syncEngine'
 import { isConnected } from '../dropbox/authClient'
 import { downloadBrandingImage } from '../dropbox/dataStore'
@@ -28,13 +37,33 @@ interface AppState {
   }) => void
   markPaymentPaid: (paymentId: string, paidAt: string, note?: string) => void
   deletePayment: (paymentId: string) => void
-  markContributionPaid: (contributionId: string, paidAt: string) => void
-  /** Ricalcola ore/importi di un trimestre dalle timeEntries reali, indipendentemente dallo
-   * status: per correggere un trimestre segnato pagato con un valore segnaposto mai versato
-   * per davvero. Non tocca status/paidAt/attachmentIds. */
-  correggiContributoStorico: (contributionId: string) => void
+  /** Registra il versamento di un trimestre INPS: se `id` corrisponde a un trimestre già
+   * salvato lo aggiorna (correzione o passaggio da "da_pagare" a "pagato"), altrimenti ne
+   * crea uno nuovo già pagato. Il monte ore e gli importi arrivano già decisi dalla UI
+   * (eventualmente corretti a mano rispetto alla proposta calcolata) — lo store non
+   * ricalcola nulla, si limita a salvare quello che l'utente ha confermato. */
+  salvaVersamentoContributo: (input: {
+    id?: string
+    year: number
+    quarter: 1 | 2 | 3 | 4
+    dueDate: string
+    periodHours: number
+    regime: ContributionRegime
+    amountTotal: number
+    amountEmployer: number
+    amountWorker: number
+    cuafExcluded: boolean
+    paidAt: string
+    note?: string
+  }) => void
+  /** Rimuove il versamento salvato: il trimestre torna a comparire come proposta
+   * previsionale calcolata dalle ore reali, finché non lo si registra di nuovo. */
+  deleteContribution: (contributionId: string) => void
   /** Lancia un errore (da mostrare all'utente) se `validFrom` non è successivo alla tariffa in vigore. */
   updateRate: (input: NewRateInput) => void
+  /** Come updateRate, ma per l'importo contributivo orario (quota datore + lavoratrice)
+   * impostato manualmente in Altro. */
+  updateContributionRate: (input: NewContributionRateInput) => void
   updateWorkerProfile: (
     patch: Pick<Worker, 'firstName' | 'lastName' | 'fiscalCode' | 'iban' | 'inpsRelationshipNumber' | 'hiringDate'>,
   ) => void
@@ -119,48 +148,58 @@ export const useAppStore = create<AppState>((set, get) => ({
     saveData(data)
   },
 
-  markContributionPaid: (contributionId, paidAt) => {
+  salvaVersamentoContributo: (input) => {
     const state = get().data
-    const data: AppData = {
-      ...state,
-      quarterlyContributions: state.quarterlyContributions.map((c) => {
-        if (c.id !== contributionId) return c
-        const aggiornato = contributoTrimestraleAggiornato(
-          c,
-          state.timeEntries,
-          state.worker.rateHistory,
-          state.settings.contributionRateTables,
+    const esistente = input.id ? state.quarterlyContributions.find((c) => c.id === input.id) : undefined
+
+    const quarterlyContributions = esistente
+      ? state.quarterlyContributions.map((c) =>
+          c.id === esistente.id
+            ? {
+                ...c,
+                periodHours: input.periodHours,
+                regime: input.regime,
+                amountTotal: input.amountTotal,
+                amountEmployer: input.amountEmployer,
+                amountWorker: input.amountWorker,
+                cuafExcluded: input.cuafExcluded,
+                status: 'pagato' as const,
+                paidAt: input.paidAt,
+                note: input.note || c.note,
+                updatedAt: touch(),
+              }
+            : c,
         )
-        return { ...aggiornato, status: 'pagato' as const, paidAt, updatedAt: touch() }
-      }),
-    }
+      : [
+          {
+            id: crypto.randomUUID(),
+            year: input.year,
+            quarter: input.quarter,
+            dueDate: input.dueDate,
+            periodHours: input.periodHours,
+            regime: input.regime,
+            amountTotal: input.amountTotal,
+            amountEmployer: input.amountEmployer,
+            amountWorker: input.amountWorker,
+            cuafExcluded: input.cuafExcluded,
+            status: 'pagato' as const,
+            paidAt: input.paidAt,
+            note: input.note,
+            attachmentIds: [],
+            updatedAt: touch(),
+          } satisfies QuarterlyContribution,
+          ...state.quarterlyContributions,
+        ]
+
+    const data: AppData = { ...state, quarterlyContributions }
     set({ data })
     saveData(data)
   },
 
-  correggiContributoStorico: (contributionId) => {
-    const state = get().data
+  deleteContribution: (contributionId) => {
     const data: AppData = {
-      ...state,
-      quarterlyContributions: state.quarterlyContributions.map((c) => {
-        if (c.id !== contributionId) return c
-        const calcolato = calcolaContributoTrimestrale(
-          state.timeEntries,
-          state.worker.rateHistory,
-          state.settings.contributionRateTables,
-          c.year,
-          c.quarter,
-        )
-        return {
-          ...c,
-          periodHours: calcolato.periodHours,
-          regime: calcolato.regime,
-          amountTotal: calcolato.amountTotal,
-          amountEmployer: calcolato.amountEmployer,
-          amountWorker: calcolato.amountWorker,
-          updatedAt: touch(),
-        }
-      }),
+      ...get().data,
+      quarterlyContributions: get().data.quarterlyContributions.filter((c) => c.id !== contributionId),
     }
     set({ data })
     saveData(data)
@@ -170,6 +209,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const worker = get().data.worker
     const rateHistory = addRateChange(worker.rateHistory, input)
     const data: AppData = { ...get().data, worker: { ...worker, rateHistory } }
+    set({ data })
+    saveData(data)
+  },
+
+  updateContributionRate: (input) => {
+    const settings = get().data.settings
+    const contributionRateHistory = addContributionRateChange(settings.contributionRateHistory, input)
+    const data: AppData = { ...get().data, settings: { ...settings, contributionRateHistory } }
     set({ data })
     saveData(data)
   },

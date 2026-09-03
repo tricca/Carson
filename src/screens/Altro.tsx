@@ -4,6 +4,7 @@ import { calcolaTredicesima } from '../domain/calculations/tredicesima'
 import { formatEuro, formatGiorni } from '../domain/format'
 import { disconnect, isConnected, startLogin } from '../dropbox/authClient'
 import { RateSettingsCard } from '../components/RateSettingsCard'
+import { ContributionRateSettingsCard } from '../components/ContributionRateSettingsCard'
 import { WorkerProfileCard } from '../components/WorkerProfileCard'
 
 export function Altro() {
@@ -32,6 +33,9 @@ export function Altro() {
       <WorkerProfileCard />
 
       <RateSettingsCard />
+      <div style={{ marginTop: 16 }}>
+        <ContributionRateSettingsCard />
+      </div>
 
       <div className="section-head">
         <div>

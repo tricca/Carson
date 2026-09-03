@@ -45,62 +45,26 @@ export function createSampleData(): AppData {
         updatedAt: now,
       },
     ],
-    quarterlyContributions: [
-      {
-        id: 'q-2026-3',
-        year: 2026,
-        quarter: 3,
-        dueDate: '2026-10-10',
-        periodHours: 247,
-        regime: 'fino_24h',
-        amountTotal: 214.6,
-        amountEmployer: 160.95,
-        amountWorker: 53.65,
-        cuafExcluded: false,
-        status: 'da_pagare',
-        paidAt: null,
-        attachmentIds: [],
-        updatedAt: now,
-      },
-      {
-        id: 'q-2026-2',
-        year: 2026,
-        quarter: 2,
-        dueDate: '2026-07-10',
-        periodHours: 230,
-        regime: 'fino_24h',
-        amountTotal: 198.4,
-        amountEmployer: 148.8,
-        amountWorker: 49.6,
-        cuafExcluded: false,
-        status: 'pagato',
-        paidAt: '2026-07-08',
-        attachmentIds: [],
-        updatedAt: now,
-      },
-    ],
+    // Nessun trimestre pre-caricato: compaiono da soli come proposta appena ci sono ore
+    // registrate (proposteContributiTrimestrali), niente più cifre segnaposto da correggere.
+    quarterlyContributions: [],
     thirteenthMonth: [],
     vacations: {
       settings: { annualDays: 26, minDaysToAccrueMonth: 15 },
       byYear: [],
     },
     settings: {
-      contributionRateTables: [
+      // Importo contributivo orario impostato a mano dall'utente (quota datore + quota
+      // lavoratrice separate) — vedi RateSettingsCard-equivalente in Altro per modificarlo.
+      // Valori di partenza indicativi (circa la fascia più bassa INPS 2026, circolare n.
+      // 9/2026): da correggere con l'importo realmente in vigore.
+      contributionRateHistory: [
         {
-          id: 'rt-2026',
+          id: 'cr-2026',
+          employerAmountPerHour: 1.27,
+          workerAmountPerHour: 0.43,
           validFrom: '2026-01-01',
           validTo: null,
-          regimeFino24h: [
-            { minHourlyPay: 0, maxHourlyPay: 9.62, fixedAmountPerHour: 1.7 },
-            { minHourlyPay: 9.62, maxHourlyPay: 11.71, fixedAmountPerHour: 1.92 },
-            { minHourlyPay: 11.71, maxHourlyPay: null, fixedAmountPerHour: 2.34 },
-          ],
-          regimeOltre24h: { fixedAmountPerHour: 1.24 },
-          employerShareRatio: 0.75,
-          sourceNote:
-            'Importi 2026 (circolare INPS n. 9/2026, con CUAF). Le fasce fino/oltre 9,61€ e 11,70€ sono confermate dalla comunicazione ufficiale INPS; la fascia intermedia, il regime oltre 24h e il riparto datore/lavoratrice sono ricostruiti da fonti terze: verificare su inps.it prima dell\'uso reale. Caso cuafExempt non distinto.',
-          inpsLink:
-            'https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.lavoratori-domestici-i-contributi-dovuti-per-il-2026.html',
         },
       ],
       // Coefficiente ufficiale pubblicato ogni dicembre (1,5% fisso + 75% inflazione ISTAT FOI),

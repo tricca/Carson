@@ -93,6 +93,7 @@ export const QuarterlyContributionSchema = z.object({
   cuafExcluded: z.boolean(),
   status: PaymentStatusSchema,
   paidAt: isoDate.nullable(),
+  note: z.string().optional(),
   attachmentIds: z.array(z.string()),
   updatedAt: isoDateTime,
 })
@@ -130,23 +131,16 @@ export const VacationsSchema = z.object({
 })
 export type Vacations = z.infer<typeof VacationsSchema>
 
-export const ContributionRateBandSchema = z.object({
-  minHourlyPay: z.number().min(0),
-  maxHourlyPay: z.number().nullable(),
-  fixedAmountPerHour: z.number().min(0),
-})
-
-export const ContributionRateTableSchema = z.object({
+/** Importo contributivo orario impostato manualmente dall'utente (non calcolato da fasce
+ * INPS): come rateHistory per la paga, ma per i due importi versati a INPS ogni ora. */
+export const ContributionRateEntrySchema = z.object({
   id: z.string(),
+  employerAmountPerHour: z.number().min(0),
+  workerAmountPerHour: z.number().min(0),
   validFrom: isoDate,
   validTo: isoDate.nullable(),
-  regimeFino24h: z.array(ContributionRateBandSchema),
-  regimeOltre24h: z.object({ fixedAmountPerHour: z.number().min(0) }),
-  employerShareRatio: z.number().min(0).max(1),
-  sourceNote: z.string(),
-  inpsLink: z.string().url(),
 })
-export type ContributionRateTable = z.infer<typeof ContributionRateTableSchema>
+export type ContributionRateEntry = z.infer<typeof ContributionRateEntrySchema>
 
 /** Coefficiente ufficiale di rivalutazione TFR (1,5% fisso + 75% inflazione ISTAT FOI) per
  * l'anno `year`, da applicare al fondo TFR accantonato al 31/12 dell'anno precedente. */
@@ -157,10 +151,10 @@ export const TfrRevaluationRateSchema = z.object({
 export type TfrRevaluationRate = z.infer<typeof TfrRevaluationRateSchema>
 
 export const SettingsSchema = z.object({
-  contributionRateTables: z.array(ContributionRateTableSchema),
   // .default([]): un file su Dropbox scritto prima dell'introduzione di questo campo non lo
   // contiene. Deve restare valido contro lo schema corrente — vedi la nota in syncEngine.ts
   // sul perché un mismatch di schema non deve mai più risolversi sovrascrivendo il remoto.
+  contributionRateHistory: z.array(ContributionRateEntrySchema).default([]),
   tfrRevaluationRates: z.array(TfrRevaluationRateSchema).default([]),
 })
 

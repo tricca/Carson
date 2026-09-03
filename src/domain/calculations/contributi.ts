@@ -1,11 +1,6 @@
-import type {
-  TimeEntry,
-  RateHistoryEntry,
-  ContributionRateTable,
-  ContributionRegime,
-  QuarterlyContribution,
-} from '../types'
+import type { TimeEntry, RateHistoryEntry, ContributionRateEntry, ContributionRegime, QuarterlyContribution } from '../types'
 import { getRateAt } from './rates'
+import { getContributionRateAt } from './contributionRates'
 import { PAID_TYPES } from './common'
 
 export interface QuarterRange {
@@ -35,16 +30,6 @@ export function determinaRegime(weeklyContractHours: number): ContributionRegime
   return weeklyContractHours <= 24 ? 'fino_24h' : 'oltre_24h'
 }
 
-export function getRateTableAt(tables: ContributionRateTable[], date: string): ContributionRateTable {
-  const match = tables
-    .filter((t) => t.validFrom <= date && (t.validTo === null || date <= t.validTo))
-    .sort((a, b) => (a.validFrom < b.validFrom ? 1 : -1))[0]
-  if (!match) {
-    throw new Error(`Nessuna tabella contributi valida per la data ${date}`)
-  }
-  return match
-}
-
 export interface ContributoTrimestrale {
   periodHours: number
   regime: ContributionRegime
@@ -55,42 +40,80 @@ export interface ContributoTrimestrale {
 }
 
 /**
- * Retribuzione oraria effettiva ai fini della fascia contributiva: paga oraria + rateo
- * 13esima (1/12) + eventuale vitto/alloggio (non modellato). Il regime >24h/settimana
- * applica un'aliquota unica a tutte le ore, indipendente dalla fascia di paga.
+ * Applica l'importo contributivo orario impostato manualmente dall'utente (quota datore +
+ * quota lavoratrice per ora, in ContributionRateEntry) al numero di ore date. Isolata da
+ * calcolaContributoTrimestrale così la UI può richiamarla con un monte ore corretto a mano
+ * (es. in fase di registrazione versamento) senza dover ripassare da timeEntries/date.
  */
+export function calcolaContributoDaOre(
+  periodHours: number,
+  contributionRate: ContributionRateEntry,
+  weeklyContractHours: number,
+): ContributoTrimestrale {
+  const amountEmployer = periodHours * contributionRate.employerAmountPerHour
+  const amountWorker = periodHours * contributionRate.workerAmountPerHour
+  return {
+    periodHours,
+    regime: determinaRegime(weeklyContractHours),
+    fixedAmountPerHour: contributionRate.employerAmountPerHour + contributionRate.workerAmountPerHour,
+    amountTotal: amountEmployer + amountWorker,
+    amountEmployer,
+    amountWorker,
+  }
+}
+
 export function calcolaContributoTrimestrale(
   timeEntries: TimeEntry[],
   rateHistory: RateHistoryEntry[],
-  rateTables: ContributionRateTable[],
+  contributionRateHistory: ContributionRateEntry[],
   year: number,
   quarter: 1 | 2 | 3 | 4,
 ): ContributoTrimestrale {
   const range = quarterRange(year, quarter)
   const periodHours = oreTrimestre(timeEntries, range)
   const rate = getRateAt(rateHistory, range.end)
-  const table = getRateTableAt(rateTables, range.end)
-  const regime = determinaRegime(rate.weeklyContractHours)
+  const contributionRate = getContributionRateAt(contributionRateHistory, range.end)
+  return calcolaContributoDaOre(periodHours, contributionRate, rate.weeklyContractHours)
+}
 
-  let fixedAmountPerHour: number
-  if (regime === 'oltre_24h') {
-    fixedAmountPerHour = table.regimeOltre24h.fixedAmountPerHour
-  } else {
-    const effectiveHourlyPay = rate.hourlyRate + rate.hourlyRate / 12
-    const band = table.regimeFino24h.find(
-      (b) => effectiveHourlyPay >= b.minHourlyPay && (b.maxHourlyPay === null || effectiveHourlyPay < b.maxHourlyPay),
-    )
-    if (!band) {
-      throw new Error(`Nessuna fascia contributiva applicabile per paga oraria effettiva ${effectiveHourlyPay}`)
-    }
-    fixedAmountPerHour = band.fixedAmountPerHour
+export interface ContributoProposta extends ContributoTrimestrale {
+  year: number
+  quarter: 1 | 2 | 3 | 4
+  dueDate: string
+}
+
+/**
+ * Propone un trimestre per ogni (anno, trimestre) con ore registrate che non ha ancora un
+ * QuarterlyContribution salvato — analogo a proposteRetribuzione per i pagamenti mensili:
+ * guidato dai dati reali, non da un intervallo di date generato a priori, così un trimestre
+ * compare da solo appena ci sono ore, incluso il primo dell'anno.
+ */
+export function proposteContributiTrimestrali(
+  timeEntries: TimeEntry[],
+  rateHistory: RateHistoryEntry[],
+  contributionRateHistory: ContributionRateEntry[],
+  contributions: QuarterlyContribution[],
+): ContributoProposta[] {
+  const esistenti = new Set(contributions.map((c) => `${c.year}-${c.quarter}`))
+
+  const trimestriConOre = new Set<string>()
+  for (const e of timeEntries) {
+    if (!PAID_TYPES.has(e.type)) continue
+    const year = Number(e.date.slice(0, 4))
+    const quarter = Math.floor((Number(e.date.slice(5, 7)) - 1) / 3) + 1
+    const key = `${year}-${quarter}`
+    if (!esistenti.has(key)) trimestriConOre.add(key)
   }
 
-  const amountTotal = periodHours * fixedAmountPerHour
-  const amountEmployer = amountTotal * table.employerShareRatio
-  const amountWorker = amountTotal - amountEmployer
-
-  return { periodHours, regime, fixedAmountPerHour, amountTotal, amountEmployer, amountWorker }
+  return [...trimestriConOre]
+    .sort((a, b) => (a < b ? 1 : -1))
+    .map((key) => {
+      const [yearStr, quarterStr] = key.split('-')
+      const year = Number(yearStr)
+      const quarter = Number(quarterStr) as 1 | 2 | 3 | 4
+      const calcolato = calcolaContributoTrimestrale(timeEntries, rateHistory, contributionRateHistory, year, quarter)
+      return { year, quarter, dueDate: quarterRange(year, quarter).dueDate, ...calcolato }
+    })
 }
 
 /**
@@ -102,14 +125,14 @@ export function contributoTrimestraleAggiornato(
   contribution: QuarterlyContribution,
   timeEntries: TimeEntry[],
   rateHistory: RateHistoryEntry[],
-  rateTables: ContributionRateTable[],
+  contributionRateHistory: ContributionRateEntry[],
 ): QuarterlyContribution {
   if (contribution.status !== 'da_pagare') return contribution
 
   const calcolato = calcolaContributoTrimestrale(
     timeEntries,
     rateHistory,
-    rateTables,
+    contributionRateHistory,
     contribution.year,
     contribution.quarter,
   )

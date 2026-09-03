@@ -21,7 +21,7 @@ function parseIsoDateLocal(iso: string): Date {
   return new Date(year, month - 1, day)
 }
 
-function dayBefore(iso: string): string {
+export function dayBefore(iso: string): string {
   const date = parseIsoDateLocal(iso)
   date.setDate(date.getDate() - 1)
   return toLocalIsoDate(date)
