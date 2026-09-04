@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
+import { Sheet } from '../components/Sheet'
 import { calcolaFerieAnno } from '../domain/calculations/ferie'
 import { calcolaTredicesima } from '../domain/calculations/tredicesima'
 import { formatEuro, formatGiorni } from '../domain/format'
@@ -10,6 +12,10 @@ import { WorkerProfileCard } from '../components/WorkerProfileCard'
 export function Altro() {
   const data = useAppStore((s) => s.data)
   const { worker } = data
+  const restoreFromDropbox = useAppStore((s) => s.restoreFromDropbox)
+  const [confermaRipristino, setConfermaRipristino] = useState(false)
+  const [ripristinoInCorso, setRipristinoInCorso] = useState(false)
+  const [ripristinoErrore, setRipristinoErrore] = useState<string | null>(null)
 
   const year = new Date().getFullYear()
   const earliestYear = Math.min(...worker.rateHistory.map((r) => Number(r.validFrom.slice(0, 4))), year)
@@ -18,6 +24,18 @@ export function Altro() {
 
   const connected = isConnected()
   const syncStatus = useAppStore((s) => s.syncStatus)
+
+  async function confermaRipristina() {
+    setRipristinoInCorso(true)
+    setRipristinoErrore(null)
+    const risultato = await restoreFromDropbox()
+    setRipristinoInCorso(false)
+    if (risultato.ok) {
+      setConfermaRipristino(false)
+    } else {
+      setRipristinoErrore(risultato.message)
+    }
+  }
 
   const SYNC_DETAIL: Record<string, string> = {
     not_connected: 'Connetti Dropbox per sincronizzare i dati tra i dispositivi',
@@ -71,11 +89,22 @@ export function Altro() {
           {connected ? 'Connesso a Dropbox' : 'Dropbox non connesso'}
         </p>
         <p className="card-sub">{SYNC_DETAIL[syncStatus]}</p>
+        {connected && (
+          <p className="card-sub" style={{ marginTop: 6 }}>
+            La sincronizzazione avviene solo all&apos;avvio dell&apos;app: se il file su Dropbox cambia mentre
+            l&apos;app è già aperta (un altro dispositivo, o una modifica fatta a mano), non se ne accorge da sola.
+          </p>
+        )}
         <div className="pay-actions">
           {connected ? (
-            <button type="button" className="btn ghost" onClick={() => disconnect()}>
-              Disconnetti
-            </button>
+            <>
+              <button type="button" className="btn ghost auto" onClick={() => setConfermaRipristino(true)}>
+                Ripristina da Dropbox
+              </button>
+              <button type="button" className="btn ghost" onClick={() => disconnect()}>
+                Disconnetti
+              </button>
+            </>
           ) : (
             <button type="button" className="btn primary" onClick={() => void startLogin()}>
               Connetti Dropbox
@@ -83,6 +112,26 @@ export function Altro() {
           )}
         </div>
       </div>
+
+      <Sheet open={confermaRipristino} onClose={() => setConfermaRipristino(false)} title="Ripristinare da Dropbox?">
+        <p className="card-sub" style={{ marginBottom: 14 }}>
+          Scarica il file da Dropbox e sovrascrive i dati su questo dispositivo con quello. Eventuali modifiche
+          fatte qui e non ancora sincronizzate andranno perse.
+        </p>
+        {ripristinoErrore && (
+          <p className="card-sub" style={{ color: 'var(--stamp)', marginBottom: 10 }}>
+            {ripristinoErrore}
+          </p>
+        )}
+        <div className="sheet-actions">
+          <button type="button" className="btn ghost auto" onClick={() => setConfermaRipristino(false)}>
+            Annulla
+          </button>
+          <button type="button" className="btn primary" onClick={() => void confermaRipristina()} disabled={ripristinoInCorso}>
+            {ripristinoInCorso ? 'Ripristino…' : 'Ripristina'}
+          </button>
+        </div>
+      </Sheet>
     </>
   )
 }

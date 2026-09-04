@@ -12,7 +12,7 @@ import type {
 import { createSampleData } from '../domain/sampleData'
 import { addRateChange, type NewRateInput } from '../domain/calculations/rates'
 import { addContributionRateChange, type NewContributionRateInput } from '../domain/calculations/contributionRates'
-import { loadInitialData, saveData, onSyncStatusChange, type SyncStatus } from '../storage/syncEngine'
+import { loadInitialData, saveData, onSyncStatusChange, restoreFromRemote, type SyncStatus } from '../storage/syncEngine'
 import { isConnected } from '../dropbox/authClient'
 import { downloadBrandingImage } from '../dropbox/dataStore'
 
@@ -24,6 +24,11 @@ interface AppState {
    * null se non connesso o se il file non esiste. Mai nel repository o nel deploy pubblico. */
   brandingImageUrl: string | null
   init: () => Promise<void>
+  /** Scarica il file da Dropbox e sovrascrive lo stato locale con quello, scartando
+   * qualunque modifica locale non ancora sincronizzata: per quando il file è stato
+   * cambiato altrove (un altro dispositivo, o a mano su Dropbox) mentre l'app era già
+   * aperta e non se n'è accorta da sola. Ritorna un messaggio d'errore se fallisce. */
+  restoreFromDropbox: () => Promise<{ ok: true } | { ok: false; message: string }>
   addTimeEntry: (entry: { date: string; type: TimeEntryType; hours: number; note?: string }) => void
   deleteTimeEntry: (id: string) => void
   generatePayment: (input: {
@@ -89,6 +94,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (url) set({ brandingImageUrl: url })
       })
     }
+  },
+
+  restoreFromDropbox: async () => {
+    const result = await restoreFromRemote()
+    if ('error' in result) return { ok: false, message: result.error }
+    set({ data: result.data })
+    return { ok: true }
   },
 
   addTimeEntry: (entry) => {

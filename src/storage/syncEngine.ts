@@ -84,6 +84,38 @@ export async function loadInitialData(seed: AppData): Promise<AppData> {
   }
 }
 
+/**
+ * Scarica il file remoto e sovrascrive SEMPRE la cache locale con quello, scartando
+ * qualunque modifica locale non ancora sincronizzata (`dirty`). Il sync automatico
+ * gira solo all'avvio dell'app: se il file viene modificato altrove (un altro
+ * dispositivo, o a mano su Dropbox) mentre l'app è già aperta, non se ne accorge da
+ * sola — questo è il modo esplicito per allinearsi a quello che c'è ora su Dropbox.
+ */
+export async function restoreFromRemote(): Promise<{ data: AppData } | { error: string }> {
+  if (!isConnected()) return { error: 'Dropbox non connesso' }
+  if (!navigator.onLine) return { error: 'Nessuna connessione a Internet' }
+
+  setStatus('syncing')
+  try {
+    const remote = await downloadData()
+    if (!remote) {
+      setStatus('error')
+      return { error: 'Nessun file trovato su Dropbox' }
+    }
+    await writeCache(remote.data, remote.rev, false)
+    setStatus('synced')
+    return { data: remote.data }
+  } catch (err) {
+    if (err instanceof DropboxSchemaMismatchError) {
+      setStatus('error')
+      return { error: 'Il file su Dropbox non è compatibile con questa versione dell\'app' }
+    }
+    console.error('Ripristino da Dropbox fallito:', err)
+    setStatus('error')
+    return { error: err instanceof Error ? err.message : 'Ripristino fallito' }
+  }
+}
+
 let pushTimer: ReturnType<typeof setTimeout> | null = null
 const PUSH_DEBOUNCE_MS = 1500
 
