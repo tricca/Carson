@@ -7,24 +7,12 @@ import { MONTH_LABELS_IT } from '../domain/format'
 
 type Vista = 'report' | 'calendario'
 
-function enumeraMesiDiscendente(
-  startYear: number,
-  startMonth: number,
-  endYear: number,
-  endMonth: number,
-): { year: number; month: number }[] {
-  const result: { year: number; month: number }[] = []
-  let y = endYear
-  let m = endMonth
-  while (y > startYear || (y === startYear && m >= startMonth)) {
-    result.push({ year: y, month: m })
-    m -= 1
-    if (m === 0) {
-      m = 12
-      y -= 1
-    }
-  }
-  return result
+function mesiDellAnno(year: number, primoAnno: number, primoMese: number, oggiAnno: number, oggiMese: number): number[] {
+  const startMonth = year === primoAnno ? primoMese : 1
+  const endMonth = year === oggiAnno ? oggiMese : 12
+  const months: number[] = []
+  for (let m = endMonth; m >= startMonth; m--) months.push(m)
+  return months
 }
 
 export function StoricoOre() {
@@ -51,11 +39,32 @@ export function StoricoOre() {
     const dataMinima = timeEntries.reduce((min, e) => (e.date < min ? e.date : min), timeEntries[0].date)
     ;[primoAnno, primoMese] = dataMinima.split('-').map(Number)
   }
-  const mesiCalendario = enumeraMesiDiscendente(primoAnno, primoMese, oggiAnno, oggiMese)
+
+  const anniConVoci = [...new Set(timeEntries.map((e) => Number(e.date.slice(0, 4))))]
+  const anni = [...new Set([oggiAnno, ...anniConVoci])].sort((a, b) => b - a)
+  const [annoSelezionato, setAnnoSelezionato] = useState(oggiAnno)
+
+  const mesiConVociAnno = mesiConVoci.filter((key) => key.startsWith(String(annoSelezionato)))
+  const mesiCalendarioAnno = mesiDellAnno(annoSelezionato, primoAnno, primoMese, oggiAnno, oggiMese)
 
   return (
     <>
-      <div className="seg-row">
+      {anni.length > 1 && (
+        <div className="seg-row">
+          {anni.map((y) => (
+            <button
+              key={y}
+              type="button"
+              className={`seg-btn${y === annoSelezionato ? ' active' : ''}`}
+              onClick={() => setAnnoSelezionato(y)}
+            >
+              {y}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="seg-row" style={{ marginTop: anni.length > 1 ? 10 : 0 }}>
         <button type="button" className={`seg-btn${vista === 'report' ? ' active' : ''}`} onClick={() => setVista('report')}>
           Report ore
         </button>
@@ -67,8 +76,8 @@ export function StoricoOre() {
       {vista === 'report' && (
         <>
           <div className="eyebrow-standalone" style={{ marginTop: 18 }}>Tutte le voci, mese per mese</div>
-          {mesiConVoci.length === 0 && <p className="card-sub">Nessuna ora registrata</p>}
-          {mesiConVoci.map((key) => {
+          {mesiConVociAnno.length === 0 && <p className="card-sub">Nessuna ora registrata nel {annoSelezionato}</p>}
+          {mesiConVociAnno.map((key) => {
             const [year, month] = key.split('-').map(Number)
             const entries = [...(byMonth.get(key) ?? [])].sort((a, b) => (a.date < b.date ? 1 : -1))
             return (
@@ -85,17 +94,17 @@ export function StoricoOre() {
 
       {vista === 'calendario' && (
         <>
-          {mesiCalendario.map(({ year, month }) => {
-            const key = `${year}-${String(month).padStart(2, '0')}`
+          {mesiCalendarioAnno.map((month) => {
+            const key = `${annoSelezionato}-${String(month).padStart(2, '0')}`
             const haVoci = byMonth.has(key)
             return (
               <div key={key} style={{ marginTop: 22 }}>
                 <div className="eyebrow" style={{ marginBottom: 6 }}>
-                  {MONTH_LABELS_IT[month - 1]} {year}
+                  {MONTH_LABELS_IT[month - 1]} {annoSelezionato}
                 </div>
                 {haVoci ? (
                   <div className="ledger-card">
-                    <CalendarMese year={year} month={month} timeEntries={timeEntries} />
+                    <CalendarMese year={annoSelezionato} month={month} timeEntries={timeEntries} />
                   </div>
                 ) : (
                   <p className="card-sub">Nessuna attivit&agrave;</p>

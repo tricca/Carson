@@ -22,13 +22,22 @@ export function Pagamenti() {
   const [nota, setNota] = useState('')
   const [toDelete, setToDelete] = useState<Payment | null>(null)
 
-  const ordinati = [...payments].sort((a, b) => {
-    const dataA = a.paidAt ?? a.updatedAt
-    const dataB = b.paidAt ?? b.updatedAt
-    return dataA < dataB ? 1 : dataA > dataB ? -1 : 0
-  })
+  const oggiAnno = new Date().getFullYear()
+  const anniConPagamenti = [...new Set(payments.map((p) => p.periodYear))]
+  const anni = [...new Set([oggiAnno, ...anniConPagamenti])].sort((a, b) => b - a)
+  const [annoSelezionato, setAnnoSelezionato] = useState(oggiAnno)
 
-  const proposte = proposteRetribuzione(timeEntries, rateHistory, payments)
+  const ordinati = [...payments]
+    .filter((p) => p.periodYear === annoSelezionato)
+    .sort((a, b) => {
+      const dataA = a.paidAt ?? a.updatedAt
+      const dataB = b.paidAt ?? b.updatedAt
+      return dataA < dataB ? 1 : dataA > dataB ? -1 : 0
+    })
+
+  // Le proposte riguardano sempre ore recenti non ancora fatturate: hanno senso solo
+  // guardando l'anno corrente, non sfogliando un anno passato.
+  const proposte = annoSelezionato === oggiAnno ? proposteRetribuzione(timeEntries, rateHistory, payments) : []
 
   function apriConferma(p: Payment) {
     setPaidAt(todayIso())
@@ -62,6 +71,21 @@ export function Pagamenti() {
 
   return (
     <>
+      {anni.length > 1 && (
+        <div className="seg-row">
+          {anni.map((y) => (
+            <button
+              key={y}
+              type="button"
+              className={`seg-btn${y === annoSelezionato ? ' active' : ''}`}
+              onClick={() => setAnnoSelezionato(y)}
+            >
+              {y}
+            </button>
+          ))}
+        </div>
+      )}
+
       {proposte.length > 0 && (
         <>
           <div className="eyebrow-standalone">Ore registrate, non ancora fatturate</div>
@@ -108,7 +132,7 @@ export function Pagamenti() {
         Mensilit&agrave;
       </div>
 
-      {ordinati.length === 0 && <p className="card-sub">Nessun pagamento registrato</p>}
+      {ordinati.length === 0 && <p className="card-sub">Nessun pagamento registrato nel {annoSelezionato}</p>}
       {ordinati.map((p) => (
         <div className="ledger-card pay-card" key={p.id} style={{ marginTop: 16 }}>
           {p.status === 'pagato' && p.paidAt && <Stamp label="PAGATO" date={p.paidAt.split('-').reverse().join('/')} />}
