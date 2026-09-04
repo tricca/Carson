@@ -63,15 +63,23 @@ export function Contributi() {
 
   const contributionRateSet = contributionRateHistory.length > 0
 
-  const proposte = contributionRateSet
-    ? proposteContributiTrimestrali(timeEntries, rateHistory, contributionRateHistory, contributions)
-    : []
+  const annoCorrente = new Date().getFullYear()
+  const anniConContributi = [...new Set(contributions.map((c) => c.year))]
+  const anni = [...new Set([annoCorrente, ...anniConContributi])].sort((a, b) => b - a)
+  const [annoSelezionato, setAnnoSelezionato] = useState(annoCorrente)
+
+  // Le proposte riguardano sempre trimestri recenti non ancora versati: hanno senso solo
+  // guardando l'anno corrente, non sfogliando un anno passato.
+  const proposte =
+    contributionRateSet && annoSelezionato === annoCorrente
+      ? proposteContributiTrimestrali(timeEntries, rateHistory, contributionRateHistory, contributions)
+      : []
 
   const ordinati = contributions
+    .filter((c) => c.year === annoSelezionato)
     .map((c) => (contributionRateSet ? contributoTrimestraleAggiornato(c, timeEntries, rateHistory, contributionRateHistory) : c))
     .sort((a, b) => (a.year !== b.year ? b.year - a.year : b.quarter - a.quarter))
 
-  const annoCorrente = new Date().getFullYear()
   const primoAnno = Math.min(...rateHistory.map((r) => Number(r.validFrom.slice(0, 4))), annoCorrente)
   const tfr = calcolaTfrRivalutato(timeEntries, rateHistory, tfrRevaluationRates, primoAnno, annoCorrente)
   const anniChiusiSenzaCoefficiente: number[] = []
@@ -147,6 +155,21 @@ export function Contributi() {
 
   return (
     <>
+      {anni.length > 1 && (
+        <div className="seg-row">
+          {anni.map((y) => (
+            <button
+              key={y}
+              type="button"
+              className={`seg-btn${y === annoSelezionato ? ' active' : ''}`}
+              onClick={() => setAnnoSelezionato(y)}
+            >
+              {y}
+            </button>
+          ))}
+        </div>
+      )}
+
       {!contributionRateSet && (
         <div className="ledger-card">
           <p className="card-title">Imposta l&apos;importo contributivo</p>
@@ -215,7 +238,7 @@ export function Contributi() {
         Scadenze trimestrali
       </div>
 
-      {ordinati.length === 0 && <p className="card-sub">Nessun trimestre registrato</p>}
+      {ordinati.length === 0 && <p className="card-sub">Nessun trimestre registrato nel {annoSelezionato}</p>}
 
       {ordinati.map((c) => {
         const rateInfo = tryGetContributionRateAt(contributionRateHistory, c.dueDate)
