@@ -11,6 +11,16 @@ export function getContributionRateAt(history: ContributionRateEntry[], date: st
   return match
 }
 
+/** Come getContributionRateAt, ma null invece di lanciare se la data non è coperta —
+ * per i punti UI/di calcolo che devono restare in piedi anche senza un importo impostato. */
+export function tryGetContributionRateAt(history: ContributionRateEntry[], date: string): ContributionRateEntry | null {
+  try {
+    return getContributionRateAt(history, date)
+  } catch {
+    return null
+  }
+}
+
 export interface NewContributionRateInput {
   employerAmountPerHour: number
   workerAmountPerHour: number

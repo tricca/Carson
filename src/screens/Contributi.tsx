@@ -13,12 +13,12 @@ import {
   type ContributoProposta,
   type ContributoTrimestrale,
 } from '../domain/calculations/contributi'
-import { getContributionRateAt } from '../domain/calculations/contributionRates'
+import { tryGetContributionRateAt } from '../domain/calculations/contributionRates'
 import { getRateAt } from '../domain/calculations/rates'
 import { calcolaTfrRivalutato } from '../domain/calculations/tfr'
-import { calcolaCud } from '../domain/calculations/cud'
+import { calcolaCud, incongruenza } from '../domain/calculations/cud'
 import { formatDataEstesa, formatEuro, formatOre, toLocalIsoDate } from '../domain/format'
-import type { ContributionRateEntry, QuarterlyContribution } from '../domain/types'
+import type { QuarterlyContribution } from '../domain/types'
 
 const REGIME_LABEL: Record<QuarterlyContribution['regime'], string> = {
   fino_24h: '≤24h/sett. · 3 fasce',
@@ -40,14 +40,6 @@ function todayIso(): string {
 
 function formatNumeroIt(n: number): string {
   return String(n).replace('.', ',')
-}
-
-function tryGetContributionRateAt(history: ContributionRateEntry[], date: string): ContributionRateEntry | null {
-  try {
-    return getContributionRateAt(history, date)
-  } catch {
-    return null
-  }
 }
 
 export function Contributi() {
@@ -98,7 +90,9 @@ export function Contributi() {
   }
 
   const annoCud = annoCorrente - 1
-  const cud = calcolaCud(payments, thirteenthMonth, contributions, annoCud)
+  const cud = calcolaCud(payments, thirteenthMonth, contributions, contributionRateHistory, annoCud)
+  const cudLordaIncongruente = incongruenza(cud.retribuzioneLorda, cud.retribuzioneLordaPrevisionale)
+  const cudContributiIncongruenti = incongruenza(cud.contributiTrattenuti, cud.contributiTrattenutiPrevisionale)
   const cudDatiIncompleti =
     !employer.firstName.trim() ||
     !employer.lastName.trim() ||
@@ -428,6 +422,27 @@ TFR corrisposto (anche tramite anticipi) di: `
                 Mancano alcuni dati anagrafici (datore di lavoro e/o codice fiscale/residenza della lavoratrice):{' '}
                 <Link to="/altro">completali in Altro</Link> perché il testo sia corretto.
               </p>
+            )}
+
+            {(cudLordaIncongruente || cudContributiIncongruenti) && (
+              <div className="card-sub" style={{ marginTop: 10, color: 'var(--stamp)' }}>
+                <p>
+                  I valori registrati non combaciano col calcolo previsionale (ore × tariffa/importo
+                  contributivo in vigore) — verifica prima di usare questo testo:
+                </p>
+                {cudLordaIncongruente && (
+                  <p style={{ marginTop: 4 }}>
+                    Retribuzione lorda: registrata {formatEuro(cud.retribuzioneLorda)}, prevista{' '}
+                    {formatEuro(cud.retribuzioneLordaPrevisionale)}.
+                  </p>
+                )}
+                {cudContributiIncongruenti && (
+                  <p style={{ marginTop: 4 }}>
+                    Contributi trattenuti: registrati {formatEuro(cud.contributiTrattenuti)}, previsti{' '}
+                    {formatEuro(cud.contributiTrattenutiPrevisionale)}.
+                  </p>
+                )}
+              </div>
             )}
 
             <textarea
