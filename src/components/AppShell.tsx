@@ -14,7 +14,6 @@ const TITLES: Record<string, string> = {
   '/ore/storico': 'Storico ore',
   '/pagamenti': 'Pagamenti',
   '/contributi': 'Contributi INPS',
-  '/contributi/cud': 'CUD',
   '/altro': 'Altro',
 }
 

@@ -16,6 +16,7 @@ import {
 import { getContributionRateAt } from '../domain/calculations/contributionRates'
 import { getRateAt } from '../domain/calculations/rates'
 import { calcolaTfrRivalutato } from '../domain/calculations/tfr'
+import { calcolaCud } from '../domain/calculations/cud'
 import { formatDataEstesa, formatEuro, formatOre, toLocalIsoDate } from '../domain/format'
 import type { ContributionRateEntry, QuarterlyContribution } from '../domain/types'
 
@@ -52,8 +53,12 @@ function tryGetContributionRateAt(history: ContributionRateEntry[], date: string
 export function Contributi() {
   const contributions = useAppStore((s) => s.data.quarterlyContributions)
   const timeEntries = useAppStore((s) => s.data.timeEntries)
-  const rateHistory = useAppStore((s) => s.data.worker.rateHistory)
-  const cuafExempt = useAppStore((s) => s.data.worker.cuafExempt)
+  const worker = useAppStore((s) => s.data.worker)
+  const rateHistory = worker.rateHistory
+  const cuafExempt = worker.cuafExempt
+  const employer = useAppStore((s) => s.data.settings.employer)
+  const payments = useAppStore((s) => s.data.payments)
+  const thirteenthMonth = useAppStore((s) => s.data.thirteenthMonth)
   const contributionRateHistory = useAppStore((s) => s.data.settings.contributionRateHistory)
   const tfrRevaluationRates = useAppStore((s) => s.data.settings.tfrRevaluationRates)
   const salvaVersamentoContributo = useAppStore((s) => s.salvaVersamentoContributo)
@@ -64,6 +69,7 @@ export function Contributi() {
   const [nota, setNota] = useState('')
   const [toDelete, setToDelete] = useState<QuarterlyContribution | null>(null)
   const [sezione, setSezione] = useState<Sezione>('contributi')
+  const [cudCopiato, setCudCopiato] = useState(false)
 
   const contributionRateSet = contributionRateHistory.length > 0
 
@@ -89,6 +95,46 @@ export function Contributi() {
   const anniChiusiSenzaCoefficiente: number[] = []
   for (let y = primoAnno; y < annoCorrente; y++) {
     if (!(tfrRevaluationRates ?? []).some((r) => r.year === y)) anniChiusiSenzaCoefficiente.push(y)
+  }
+
+  const annoCud = annoCorrente - 1
+  const cud = calcolaCud(payments, thirteenthMonth, contributions, annoCud)
+  const cudDatiIncompleti =
+    !employer.firstName.trim() ||
+    !employer.lastName.trim() ||
+    !employer.address.trim() ||
+    !employer.fiscalCode.trim() ||
+    !worker.address?.trim() ||
+    !worker.fiscalCode?.trim()
+  const testoCud = `DICHIARAZIONE SOSTITUTIVA DEL C.U.D.
+
+DATORE DI LAVORO
+Cognome: ${employer.lastName}
+Nome: ${employer.firstName}
+Residenza: ${employer.address}
+Codice Fiscale: ${employer.fiscalCode}
+dichiara di aver corrisposto nel periodo:
+dal 01/01/${annoCud} al 31/12/${annoCud}
+
+al:
+
+DIPENDENTE
+Cognome: ${worker.lastName}
+Nome: ${worker.firstName}
+Residenza: ${worker.address ?? ''}
+Codice Fiscale: ${worker.fiscalCode ?? ''}
+
+per prestazioni di lavoro domestico
+la retribuzione lorda (comprensiva di tredicesima e contributi) di: ${formatEuro(cud.retribuzioneLorda)}
+al netto dei contributi previdenziali di: ${formatEuro(cud.contributiTrattenuti)}
+per una retribuzione netta corrisposta di: ${formatEuro(cud.retribuzioneNetta)}
+Imponibile assoggettabile all'IRPEF ridotto (lavoro straordinario e premi) di:
+TFR corrisposto (anche tramite anticipi) di: `
+
+  async function copiaCud() {
+    await navigator.clipboard.writeText(testoCud)
+    setCudCopiato(true)
+    setTimeout(() => setCudCopiato(false), 2000)
   }
 
   function apriConfermaEsistente(c: QuarterlyContribution) {
@@ -370,10 +416,34 @@ export function Contributi() {
           </div>
 
           <div className="eyebrow-standalone" style={{ marginTop: 24 }}>Documenti</div>
-          <Link to="/contributi/cud" className="ledger-card" style={{ marginTop: 16, display: 'block' }}>
-            <p className="card-title">CUD {annoCorrente - 1}</p>
-            <p className="card-sub">Dichiarazione sostitutiva, pronta da copiare &rarr;</p>
-          </Link>
+          <div className="ledger-card" style={{ marginTop: 16 }}>
+            <p className="card-title">CUD {annoCud}</p>
+            <p className="card-sub" style={{ marginTop: 6 }}>
+              Retribuzione lorda {formatEuro(cud.retribuzioneLorda)} · contributi trattenuti{' '}
+              {formatEuro(cud.contributiTrattenuti)} · netto {formatEuro(cud.retribuzioneNetta)}
+            </p>
+
+            {cudDatiIncompleti && (
+              <p className="card-sub" style={{ marginTop: 10, color: 'var(--stamp)' }}>
+                Mancano alcuni dati anagrafici (datore di lavoro e/o codice fiscale/residenza della lavoratrice):{' '}
+                <Link to="/altro">completali in Altro</Link> perché il testo sia corretto.
+              </p>
+            )}
+
+            <textarea
+              readOnly
+              value={testoCud}
+              rows={22}
+              className="text-input"
+              style={{ width: '100%', marginTop: 12, fontFamily: 'monospace', fontSize: 12.5, lineHeight: 1.5, resize: 'vertical' }}
+              onFocus={(e) => e.currentTarget.select()}
+            />
+            <div className="pay-actions">
+              <button type="button" className="btn primary" onClick={() => void copiaCud()}>
+                {cudCopiato ? 'Copiato!' : 'Copia testo'}
+              </button>
+            </div>
+          </div>
         </>
       )}
 
