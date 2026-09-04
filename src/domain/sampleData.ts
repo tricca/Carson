@@ -8,6 +8,7 @@ export function createSampleData(): AppData {
     worker: {
       firstName: 'Maria',
       lastName: 'T.',
+      address: 'via Esempio 1, 20100 Milano (MI)',
       hiringDate: '2024-03-01',
       contractType: 'tempo_indeterminato',
       livingWithEmployer: false,
@@ -75,6 +76,13 @@ export function createSampleData(): AppData {
         { year: 2024, rate: 0.02320017 },
         { year: 2025, rate: 0.02311148 },
       ],
+      // Dati anagrafici di esempio per il CUD sostitutivo — da sostituire con i propri in Altro.
+      employer: {
+        firstName: 'Mario',
+        lastName: 'Rossi',
+        address: 'via Esempio 10, 20100 Milano (MI)',
+        fiscalCode: 'RSSMRA80A01F205X',
+      },
     },
     attachments: [],
   }

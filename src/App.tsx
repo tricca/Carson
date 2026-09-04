@@ -5,6 +5,7 @@ import { Ore } from './screens/Ore'
 import { StoricoOre } from './screens/StoricoOre'
 import { Pagamenti } from './screens/Pagamenti'
 import { Contributi } from './screens/Contributi'
+import { Cud } from './screens/Cud'
 import { Altro } from './screens/Altro'
 
 export function App() {
@@ -17,6 +18,7 @@ export function App() {
           <Route path="ore/storico" element={<StoricoOre />} />
           <Route path="pagamenti" element={<Pagamenti />} />
           <Route path="contributi" element={<Contributi />} />
+          <Route path="contributi/cud" element={<Cud />} />
           <Route path="altro" element={<Altro />} />
         </Route>
       </Routes>

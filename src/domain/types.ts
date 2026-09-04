@@ -28,6 +28,8 @@ export const WorkerSchema = z.object({
   firstName: z.string(),
   lastName: z.string(),
   fiscalCode: z.string().optional(),
+  /** Indirizzo di residenza, per documenti come il CUD sostitutivo. */
+  address: z.string().optional(),
   iban: z.string().optional(),
   inpsRelationshipNumber: z.string().optional(),
   hiringDate: isoDate.optional(),
@@ -150,12 +152,25 @@ export const TfrRevaluationRateSchema = z.object({
 })
 export type TfrRevaluationRate = z.infer<typeof TfrRevaluationRateSchema>
 
+/** Dati anagrafici del datore di lavoro, per documenti come il CUD sostitutivo. */
+export const EmployerSchema = z.object({
+  firstName: z.string(),
+  lastName: z.string(),
+  address: z.string(),
+  fiscalCode: z.string(),
+})
+export type Employer = z.infer<typeof EmployerSchema>
+
+const EMPTY_EMPLOYER: Employer = { firstName: '', lastName: '', address: '', fiscalCode: '' }
+
 export const SettingsSchema = z.object({
-  // .default([]): un file su Dropbox scritto prima dell'introduzione di questo campo non lo
-  // contiene. Deve restare valido contro lo schema corrente — vedi la nota in syncEngine.ts
-  // sul perché un mismatch di schema non deve mai più risolversi sovrascrivendo il remoto.
+  // .default([]) / .default(...): un file su Dropbox scritto prima dell'introduzione di
+  // questo campo non lo contiene. Deve restare valido contro lo schema corrente — vedi la
+  // nota in syncEngine.ts sul perché un mismatch di schema non deve mai più risolversi
+  // sovrascrivendo il remoto.
   contributionRateHistory: z.array(ContributionRateEntrySchema).default([]),
   tfrRevaluationRates: z.array(TfrRevaluationRateSchema).default([]),
+  employer: EmployerSchema.default(EMPTY_EMPLOYER),
 })
 
 export const AppDataSchema = z.object({

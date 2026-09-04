@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
 import { Sheet } from '../components/Sheet'
 import { Stamp } from '../components/Stamp'
@@ -25,6 +26,8 @@ const REGIME_LABEL: Record<QuarterlyContribution['regime'], string> = {
 
 const INPS_INFO_URL =
   'https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.lavoratori-domestici-i-contributi-dovuti-per-il-2026.html'
+
+type Sezione = 'contributi' | 'altro'
 
 type VersamentoTarget =
   | { kind: 'existing'; contribution: QuarterlyContribution }
@@ -60,6 +63,7 @@ export function Contributi() {
   const [paidAt, setPaidAt] = useState(todayIso())
   const [nota, setNota] = useState('')
   const [toDelete, setToDelete] = useState<QuarterlyContribution | null>(null)
+  const [sezione, setSezione] = useState<Sezione>('contributi')
 
   const contributionRateSet = contributionRateHistory.length > 0
 
@@ -155,8 +159,19 @@ export function Contributi() {
 
   return (
     <>
+      <div className="seg-row">
+        <button type="button" className={`seg-btn${sezione === 'contributi' ? ' active' : ''}`} onClick={() => setSezione('contributi')}>
+          Contributi
+        </button>
+        <button type="button" className={`seg-btn${sezione === 'altro' ? ' active' : ''}`} onClick={() => setSezione('altro')}>
+          Altro
+        </button>
+      </div>
+
+      {sezione === 'contributi' && (
+        <>
       {anni.length > 1 && (
-        <div className="seg-row">
+        <div className="seg-row" style={{ marginTop: 10 }}>
           {anni.map((y) => (
             <button
               key={y}
@@ -316,39 +331,51 @@ export function Contributi() {
           </div>
         )
       })}
+        </>
+      )}
 
-      <div className="eyebrow-standalone" style={{ marginTop: 24 }}>TFR</div>
-      <div className="ledger-card" style={{ marginTop: 16 }}>
-        <p className="card-title">Trattamento di fine rapporto</p>
-        <p className="card-sub">Maturato al {formatDataEstesa(todayIso())}</p>
-        <div className="stat-grid" style={{ marginTop: 14 }}>
-          <div>
-            <div className="stat-label">TFR rivalutato dal {primoAnno}</div>
-            <div className="stat-value mono" style={{ fontSize: 18 }}>{formatEuro(tfr.totale)}</div>
+      {sezione === 'altro' && (
+        <>
+          <div className="eyebrow-standalone">TFR</div>
+          <div className="ledger-card" style={{ marginTop: 16 }}>
+            <p className="card-title">Trattamento di fine rapporto</p>
+            <p className="card-sub">Maturato al {formatDataEstesa(todayIso())}</p>
+            <div className="stat-grid" style={{ marginTop: 14 }}>
+              <div>
+                <div className="stat-label">TFR rivalutato dal {primoAnno}</div>
+                <div className="stat-value mono" style={{ fontSize: 18 }}>{formatEuro(tfr.totale)}</div>
+              </div>
+              <div>
+                <div className="stat-label">Quota {annoCorrente} (non ancora rivalutata)</div>
+                <div className="stat-value mono" style={{ fontSize: 18 }}>{formatEuro(tfr.quotaAnnoCorrente)}</div>
+              </div>
+            </div>
+            <details className="disclosure">
+              <summary>Dettaglio calcolo</summary>
+              <div className="dbody">
+                TFR annuo = (retribuzione annua lorda + rateo tredicesima) / 13,5 (art. 2120 c.c.). Il fondo degli
+                anni chiusi è rivalutato col coefficiente ufficiale di ciascun anno (1,5% fisso + 75% inflazione
+                ISTAT FOI, applicato al fondo al 31/12 dell&apos;anno precedente) — effetto rivalutazione finora:{' '}
+                {formatEuro(tfr.effettoRivalutazione)}. La quota dell&apos;anno in corso non è mai rivalutabile
+                prima che il coefficiente di dicembre venga pubblicato.
+                {anniChiusiSenzaCoefficiente.length > 0 && (
+                  <>
+                    {' '}
+                    Coefficiente mancante per {anniChiusiSenzaCoefficiente.join(', ')}: quegli anni non sono stati
+                    rivalutati, aggiorna <code>tfrRevaluationRates</code> non appena disponibile.
+                  </>
+                )}
+              </div>
+            </details>
           </div>
-          <div>
-            <div className="stat-label">Quota {annoCorrente} (non ancora rivalutata)</div>
-            <div className="stat-value mono" style={{ fontSize: 18 }}>{formatEuro(tfr.quotaAnnoCorrente)}</div>
-          </div>
-        </div>
-        <details className="disclosure">
-          <summary>Dettaglio calcolo</summary>
-          <div className="dbody">
-            TFR annuo = (retribuzione annua lorda + rateo tredicesima) / 13,5 (art. 2120 c.c.). Il fondo degli anni
-            chiusi è rivalutato col coefficiente ufficiale di ciascun anno (1,5% fisso + 75% inflazione ISTAT FOI,
-            applicato al fondo al 31/12 dell&apos;anno precedente) — effetto rivalutazione finora:{' '}
-            {formatEuro(tfr.effettoRivalutazione)}. La quota dell&apos;anno in corso non è mai rivalutabile prima
-            che il coefficiente di dicembre venga pubblicato.
-            {anniChiusiSenzaCoefficiente.length > 0 && (
-              <>
-                {' '}
-                Coefficiente mancante per {anniChiusiSenzaCoefficiente.join(', ')}: quegli anni non sono stati
-                rivalutati, aggiorna <code>tfrRevaluationRates</code> non appena disponibile.
-              </>
-            )}
-          </div>
-        </details>
-      </div>
+
+          <div className="eyebrow-standalone" style={{ marginTop: 24 }}>Documenti</div>
+          <Link to="/contributi/cud" className="ledger-card" style={{ marginTop: 16, display: 'block' }}>
+            <p className="card-title">CUD {annoCorrente - 1}</p>
+            <p className="card-sub">Dichiarazione sostitutiva, pronta da copiare &rarr;</p>
+          </Link>
+        </>
+      )}
 
       <Sheet
         open={target !== null}

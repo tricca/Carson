@@ -9,6 +9,7 @@ import { forzaAggiornamentoApp } from '../pwaUpdate'
 import { RateSettingsCard } from '../components/RateSettingsCard'
 import { ContributionRateSettingsCard } from '../components/ContributionRateSettingsCard'
 import { WorkerProfileCard } from '../components/WorkerProfileCard'
+import { EmployerProfileCard } from '../components/EmployerProfileCard'
 
 export function Altro() {
   const data = useAppStore((s) => s.data)
@@ -61,6 +62,9 @@ export function Altro() {
       <div style={{ marginTop: 16 }}>
         <ContributionRateSettingsCard />
       </div>
+
+      <div className="eyebrow-standalone" style={{ marginTop: 24 }}>Datore di lavoro</div>
+      <EmployerProfileCard />
 
       <div className="section-head">
         <div>

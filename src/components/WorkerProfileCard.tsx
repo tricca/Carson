@@ -21,6 +21,7 @@ export function WorkerProfileCard() {
   const [firstName, setFirstName] = useState(worker.firstName)
   const [lastName, setLastName] = useState(worker.lastName)
   const [fiscalCode, setFiscalCode] = useState(worker.fiscalCode ?? '')
+  const [address, setAddress] = useState(worker.address ?? '')
   const [iban, setIban] = useState(worker.iban ?? '')
   const [inpsRelationshipNumber, setInpsRelationshipNumber] = useState(worker.inpsRelationshipNumber ?? '')
   const [hiringDate, setHiringDate] = useState(worker.hiringDate ?? '')
@@ -30,6 +31,7 @@ export function WorkerProfileCard() {
     setFirstName(worker.firstName)
     setLastName(worker.lastName)
     setFiscalCode(worker.fiscalCode ?? '')
+    setAddress(worker.address ?? '')
     setIban(worker.iban ?? '')
     setInpsRelationshipNumber(worker.inpsRelationshipNumber ?? '')
     setHiringDate(worker.hiringDate ?? '')
@@ -45,6 +47,7 @@ export function WorkerProfileCard() {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       fiscalCode: fiscalCode.trim() ? fiscalCode.trim().toUpperCase() : undefined,
+      address: address.trim() || undefined,
       iban: iban.trim() ? iban.trim().toUpperCase().replace(/\s+/g, '') : undefined,
       inpsRelationshipNumber: inpsRelationshipNumber.trim() || undefined,
       hiringDate: hiringDate || undefined,
@@ -70,10 +73,11 @@ export function WorkerProfileCard() {
 
         <div style={{ marginTop: 10 }}>
           <Riga label="Codice fiscale" value={worker.fiscalCode} />
+          <Riga label="Residenza" value={worker.address} />
           <Riga label="IBAN" value={worker.iban} />
           <Riga label="N. rapporto INPS" value={worker.inpsRelationshipNumber} />
           <Riga label="Assunta il" value={worker.hiringDate ? formatDataEstesa(worker.hiringDate) : undefined} />
-          {!worker.fiscalCode && !worker.iban && !worker.inpsRelationshipNumber && !worker.hiringDate && (
+          {!worker.fiscalCode && !worker.address && !worker.iban && !worker.inpsRelationshipNumber && !worker.hiringDate && (
             <p className="card-sub">Nessun dato anagrafico ancora inserito</p>
           )}
         </div>
@@ -88,6 +92,14 @@ export function WorkerProfileCard() {
 
         <div className="field-label">Codice fiscale</div>
         <input className="text-input" value={fiscalCode} onChange={(e) => setFiscalCode(e.target.value)} placeholder="Opzionale" />
+
+        <div className="field-label">Residenza</div>
+        <input
+          className="text-input"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="Via, civico, CAP Città (Provincia) — opzionale"
+        />
 
         <div className="field-label">IBAN</div>
         <input className="text-input" value={iban} onChange={(e) => setIban(e.target.value)} placeholder="Opzionale" />

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type {
   AppData,
   ContributionRegime,
+  Employer,
   Payment,
   PaymentCategory,
   QuarterlyContribution,
@@ -70,8 +71,10 @@ interface AppState {
    * impostato manualmente in Altro. */
   updateContributionRate: (input: NewContributionRateInput) => void
   updateWorkerProfile: (
-    patch: Pick<Worker, 'firstName' | 'lastName' | 'fiscalCode' | 'iban' | 'inpsRelationshipNumber' | 'hiringDate'>,
+    patch: Pick<Worker, 'firstName' | 'lastName' | 'fiscalCode' | 'address' | 'iban' | 'inpsRelationshipNumber' | 'hiringDate'>,
   ) => void
+  /** Dati anagrafici del datore di lavoro, per il CUD sostitutivo. */
+  updateEmployer: (patch: Employer) => void
 }
 
 function touch(): string {
@@ -235,6 +238,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateWorkerProfile: (patch) => {
     const data: AppData = { ...get().data, worker: { ...get().data.worker, ...patch } }
+    set({ data })
+    saveData(data)
+  },
+
+  updateEmployer: (patch) => {
+    const settings = get().data.settings
+    const data: AppData = { ...get().data, settings: { ...settings, employer: patch } }
     set({ data })
     saveData(data)
   },
