@@ -5,6 +5,7 @@ import { calcolaFerieAnno } from '../domain/calculations/ferie'
 import { calcolaTredicesima } from '../domain/calculations/tredicesima'
 import { formatEuro, formatGiorni } from '../domain/format'
 import { disconnect, isConnected, startLogin } from '../dropbox/authClient'
+import { forzaAggiornamentoApp } from '../pwaUpdate'
 import { RateSettingsCard } from '../components/RateSettingsCard'
 import { ContributionRateSettingsCard } from '../components/ContributionRateSettingsCard'
 import { WorkerProfileCard } from '../components/WorkerProfileCard'
@@ -16,6 +17,7 @@ export function Altro() {
   const [confermaRipristino, setConfermaRipristino] = useState(false)
   const [ripristinoInCorso, setRipristinoInCorso] = useState(false)
   const [ripristinoErrore, setRipristinoErrore] = useState<string | null>(null)
+  const [aggiornamentoInCorso, setAggiornamentoInCorso] = useState(false)
 
   const year = new Date().getFullYear()
   const earliestYear = Math.min(...worker.rateHistory.map((r) => Number(r.validFrom.slice(0, 4))), year)
@@ -35,6 +37,11 @@ export function Altro() {
     } else {
       setRipristinoErrore(risultato.message)
     }
+  }
+
+  async function aggiornaApp() {
+    setAggiornamentoInCorso(true)
+    await forzaAggiornamentoApp()
   }
 
   const SYNC_DETAIL: Record<string, string> = {
@@ -110,6 +117,25 @@ export function Altro() {
               Connetti Dropbox
             </button>
           )}
+        </div>
+      </div>
+
+      <div className="section-head">
+        <div>
+          <div className="eyebrow">App</div>
+          <h2>Versione</h2>
+        </div>
+      </div>
+      <div className="ledger-card">
+        <p className="card-sub">
+          Se dopo un aggiornamento non vedi le novità (capita spesso sulle app salvate sulla home di iOS), forza
+          il download dei file più recenti. Non tocca i tuoi dati: quelli restano su Dropbox e nella cache locale
+          separata, questo pulisce solo la cache del codice.
+        </p>
+        <div className="pay-actions">
+          <button type="button" className="btn ghost auto" onClick={() => void aggiornaApp()} disabled={aggiornamentoInCorso}>
+            {aggiornamentoInCorso ? 'Aggiornamento…' : 'Forza aggiornamento app'}
+          </button>
         </div>
       </div>
 
