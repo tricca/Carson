@@ -54,6 +54,8 @@ describe('calcolaTfrRivalutato', () => {
     const quotaAnno = calcolaTfrAnno(entries, rateHistory, 2023)
     expect(risultato.fondoRivalutato).toBeCloseTo(quotaAnno * 2, 6)
     expect(risultato.effettoRivalutazione).toBeCloseTo(0, 6)
+    expect(risultato.dettaglioAnni.map((r) => r.year)).toEqual([2023, 2024, 2025])
+    expect(risultato.dettaglioAnni.every((r) => r.coefficiente === null)).toBe(true)
   })
 
   it('rivaluta il fondo degli anni chiusi con i coefficienti ufficiali, non la quota dell\'anno in corso', () => {
@@ -72,6 +74,18 @@ describe('calcolaTfrRivalutato', () => {
     expect(risultato.quotaAnnoCorrente).toBeCloseTo(calcolaTfrAnno(entries, rateHistory, 2025), 6)
     expect(risultato.effettoRivalutazione).toBeGreaterThan(0)
     expect(risultato.totale).toBeCloseTo(risultato.fondoRivalutato + risultato.quotaAnnoCorrente, 6)
+
+    expect(risultato.dettaglioAnni).toHaveLength(3)
+    const [riga2023, riga2024, riga2025] = risultato.dettaglioAnni
+    expect(riga2023.fondoIniziale).toBe(0)
+    expect(riga2023.coefficiente).toBeCloseTo(0.01944162, 6)
+    expect(riga2023.fondoFinale).toBeCloseTo(quota, 6)
+    expect(riga2024.fondoIniziale).toBeCloseTo(quota, 6)
+    expect(riga2024.coefficiente).toBeCloseTo(0.0232, 6)
+    expect(riga2024.fondoFinale).toBeCloseTo(fondoAtteso, 6)
+    expect(riga2025.coefficiente).toBeNull()
+    expect(riga2025.fondoIniziale).toBeCloseTo(fondoAtteso, 6)
+    expect(riga2025.fondoFinale).toBeCloseTo(risultato.totale, 6)
   })
 
   it('un solo anno (in corso, non ancora chiuso): nessun fondo pregresso da rivalutare', () => {
@@ -80,5 +94,7 @@ describe('calcolaTfrRivalutato', () => {
     expect(risultato.fondoRivalutato).toBe(0)
     expect(risultato.quotaAnnoCorrente).toBeCloseTo(calcolaTfrAnno(entries, rateHistory, 2023), 6)
     expect(risultato.totale).toBeCloseTo(risultato.quotaAnnoCorrente, 6)
+    expect(risultato.dettaglioAnni).toHaveLength(1)
+    expect(risultato.dettaglioAnni[0]).toMatchObject({ year: 2023, fondoIniziale: 0, coefficiente: null })
   })
 })

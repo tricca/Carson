@@ -405,6 +405,26 @@ TFR corrisposto (anche tramite anticipi) di: `
                     rivalutati, aggiorna <code>tfrRevaluationRates</code> non appena disponibile.
                   </>
                 )}
+
+                <div style={{ marginTop: 12, borderTop: '1px dashed var(--line)', paddingTop: 10 }}>
+                  {tfr.dettaglioAnni.map((riga, i) => {
+                    const inCorso = riga.year === annoCorrente
+                    return (
+                      <div key={riga.year} style={{ padding: '5px 0', borderTop: i > 0 ? '1px dashed var(--line)' : undefined }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontWeight: 600 }}>{riga.year}{inCorso ? ' (in corso)' : ''}</span>
+                          <span className="mono">{formatEuro(riga.fondoFinale)}</span>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                          fondo iniziale {formatEuro(riga.fondoIniziale)}
+                          {riga.coefficiente !== null && ` · rivalutato ${(riga.coefficiente * 100).toFixed(4).replace('.', ',')}%`}
+                          {' '}+ quota {formatEuro(riga.quota)}
+                          {riga.coefficiente === null && !inCorso && ' (nessun coefficiente disponibile)'}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             </details>
           </div>
