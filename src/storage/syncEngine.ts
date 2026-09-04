@@ -119,12 +119,24 @@ export async function restoreFromRemote(): Promise<{ data: AppData } | { error: 
 let pushTimer: ReturnType<typeof setTimeout> | null = null
 const PUSH_DEBOUNCE_MS = 1500
 
-/** Salva subito in locale (mai perde dati) e propaga a Dropbox con un debounce. */
-export function saveData(data: AppData): void {
-  void (async (): Promise<void> => {
+// Coda che serializza le scritture sulla cache locale: due saveData() ravvicinati (es.
+// modifiche salvate a colpi rapidi in sequenza) altrimenti fanno due letture+scritture
+// IndexedDB in parallelo senza garanzia sull'ordine di completamento, e quella più lenta
+// può sovrascrivere per ultima con dati più vecchi — un salvataggio "vince" silenziosamente
+// su un altro. Incodando ogni scrittura sulla precedente restano nell'ordine di chiamata.
+let cacheWriteQueue: Promise<void> = Promise.resolve()
+
+function queueCacheWrite(data: AppData): Promise<void> {
+  cacheWriteQueue = cacheWriteQueue.then(async () => {
     const cached = await readCache()
     await writeCache(data, cached?.rev ?? null, true)
-  })()
+  })
+  return cacheWriteQueue
+}
+
+/** Salva subito in locale (mai perde dati) e propaga a Dropbox con un debounce. */
+export function saveData(data: AppData): void {
+  void queueCacheWrite(data)
 
   if (pushTimer) clearTimeout(pushTimer)
   pushTimer = setTimeout(() => {
@@ -133,6 +145,9 @@ export function saveData(data: AppData): void {
 }
 
 async function flushPendingChanges(): Promise<void> {
+  // Aspetta che tutte le scritture locali in coda siano applicate prima di leggere
+  // "l'ultimo stato": altrimenti si rischia di propagare a Dropbox uno stato intermedio.
+  await cacheWriteQueue
   if (!isConnected() || !navigator.onLine) {
     setStatus(isConnected() ? 'offline' : 'not_connected')
     return
