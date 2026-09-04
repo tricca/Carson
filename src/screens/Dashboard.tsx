@@ -6,6 +6,7 @@ import { CalendarMese } from '../components/CalendarMese'
 import { calcolaTredicesima } from '../domain/calculations/tredicesima'
 import { maturatoMese, oreMeseRetribuite } from '../domain/calculations/mese'
 import { proposteRetribuzione } from '../domain/calculations/paymentProposals'
+import { proposteContributiTrimestrali } from '../domain/calculations/contributi'
 import { formatDataEstesa, formatEuro, formatGiorni, toLocalIsoDate, MONTH_LABELS_IT } from '../domain/format'
 
 export function Dashboard() {
@@ -21,9 +22,19 @@ export function Dashboard() {
   const maturato = maturatoMese(timeEntries, worker.rateHistory, year, month)
   const tredicesima = calcolaTredicesima(timeEntries, worker.rateHistory, year)
 
-  const prossimaScadenza = quarterlyContributions
+  // I trimestri non ancora registrati non esistono più come record persistito (status
+  // "da_pagare"): compaiono solo come proposta calcolata dalle ore reali, finché non si
+  // registra il versamento. La prossima scadenza va cercata in entrambi i posti.
+  const contributionRateHistory = data.settings.contributionRateHistory
+  const proposteContributi =
+    contributionRateHistory.length > 0
+      ? proposteContributiTrimestrali(timeEntries, worker.rateHistory, contributionRateHistory, quarterlyContributions)
+      : []
+  const scadenzaPersistita = quarterlyContributions
     .filter((c) => c.status === 'da_pagare')
     .sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1))[0]
+  const propostaPiuVicina = [...proposteContributi].sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1))[0]
+  const prossimaScadenza = scadenzaPersistita ?? propostaPiuVicina
 
   const proposte = proposteRetribuzione(timeEntries, worker.rateHistory, payments)
   const oreDaPagareMeseCorrente =
@@ -84,7 +95,7 @@ export function Dashboard() {
       )}
 
       {prossimaScadenza && (
-        <div className="due-card">
+        <Link to="/contributi" className="due-card">
           <div>
             <div className="days mono">{Math.max(0, differenceInCalendarDays(new Date(`${prossimaScadenza.dueDate}T00:00:00`), today))}</div>
             <div className="days-label">giorni</div>
@@ -95,7 +106,7 @@ export function Dashboard() {
             </p>
             <p className="t2">Scadenza {formatDataEstesa(prossimaScadenza.dueDate)}</p>
           </div>
-        </div>
+        </Link>
       )}
 
       <div className="section-head">
