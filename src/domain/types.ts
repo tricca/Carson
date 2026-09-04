@@ -112,27 +112,6 @@ export const ThirteenthMonthSchema = z.object({
 })
 export type ThirteenthMonth = z.infer<typeof ThirteenthMonthSchema>
 
-export const VacationYearRecordSchema = z.object({
-  year: z.number().int(),
-  daysAccrued: z.number().min(0),
-  daysTaken: z.number().min(0),
-  valueAccrued: z.number().min(0),
-  valueTaken: z.number().min(0),
-})
-export type VacationYearRecord = z.infer<typeof VacationYearRecordSchema>
-
-export const VacationSettingsSchema = z.object({
-  annualDays: z.number().positive(),
-  minDaysToAccrueMonth: z.number().int().min(0).max(31),
-})
-export type VacationSettings = z.infer<typeof VacationSettingsSchema>
-
-export const VacationsSchema = z.object({
-  settings: VacationSettingsSchema,
-  byYear: z.array(VacationYearRecordSchema),
-})
-export type Vacations = z.infer<typeof VacationsSchema>
-
 /** Importo contributivo orario impostato manualmente dall'utente (non calcolato da fasce
  * INPS): come rateHistory per la paga, ma per i due importi versati a INPS ogni ora. */
 export const ContributionRateEntrySchema = z.object({
@@ -180,7 +159,6 @@ export const AppDataSchema = z.object({
   payments: z.array(PaymentSchema),
   quarterlyContributions: z.array(QuarterlyContributionSchema),
   thirteenthMonth: z.array(ThirteenthMonthSchema),
-  vacations: VacationsSchema,
   settings: SettingsSchema,
   attachments: z.array(AttachmentSchema),
 })

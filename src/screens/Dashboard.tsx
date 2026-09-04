@@ -4,7 +4,6 @@ import { useAppStore } from '../store/useAppStore'
 import { TimeEntryList } from '../components/TimeEntryList'
 import { CalendarMese } from '../components/CalendarMese'
 import { calcolaTredicesima } from '../domain/calculations/tredicesima'
-import { calcolaFerieAnno, calcolaFerieResiduoCumulato } from '../domain/calculations/ferie'
 import { maturatoMese, oreMeseRetribuite } from '../domain/calculations/mese'
 import { proposteRetribuzione } from '../domain/calculations/paymentProposals'
 import { formatDataEstesa, formatEuro, formatGiorni, toLocalIsoDate, MONTH_LABELS_IT } from '../domain/format'
@@ -21,13 +20,6 @@ export function Dashboard() {
   const oreMese = oreMeseRetribuite(timeEntries, year, month)
   const maturato = maturatoMese(timeEntries, worker.rateHistory, year, month)
   const tredicesima = calcolaTredicesima(timeEntries, worker.rateHistory, year)
-
-  const earliestYear = Math.min(...worker.rateHistory.map((r) => Number(r.validFrom.slice(0, 4))), year)
-  const ferieAnni = []
-  for (let y = earliestYear; y <= year; y++) {
-    ferieAnni.push(calcolaFerieAnno(timeEntries, worker.rateHistory, data.vacations.settings, y))
-  }
-  const ferieResidue = calcolaFerieResiduoCumulato(ferieAnni)
 
   const prossimaScadenza = quarterlyContributions
     .filter((c) => c.status === 'da_pagare')
@@ -70,13 +62,6 @@ export function Dashboard() {
           <div>
             <div className="stat-label">Maturato</div>
             <div className="stat-value mono">{formatEuro(maturato)}</div>
-          </div>
-          <div>
-            <div className="stat-label">Ferie residue</div>
-            <div className="stat-value mono">
-              {formatGiorni(ferieResidue)}
-              <span className="unit">gg</span>
-            </div>
           </div>
           <div>
             <div className="stat-label">Tredicesima {year}</div>

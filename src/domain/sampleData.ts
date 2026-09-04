@@ -50,10 +50,6 @@ export function createSampleData(): AppData {
     // registrate (proposteContributiTrimestrali), niente più cifre segnaposto da correggere.
     quarterlyContributions: [],
     thirteenthMonth: [],
-    vacations: {
-      settings: { annualDays: 26, minDaysToAccrueMonth: 15 },
-      byYear: [],
-    },
     settings: {
       // Importo contributivo orario impostato a mano dall'utente (quota datore + quota
       // lavoratrice separate) — vedi RateSettingsCard-equivalente in Altro per modificarlo.

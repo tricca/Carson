@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { Sheet } from '../components/Sheet'
-import { calcolaFerieAnno } from '../domain/calculations/ferie'
 import { calcolaTredicesima } from '../domain/calculations/tredicesima'
-import { formatEuro, formatGiorni } from '../domain/format'
+import { formatEuro } from '../domain/format'
 import { disconnect, isConnected, startLogin } from '../dropbox/authClient'
 import { forzaAggiornamentoApp } from '../pwaUpdate'
 import { RateSettingsCard } from '../components/RateSettingsCard'
@@ -69,19 +68,15 @@ export function Altro() {
       <div className="section-head">
         <div>
           <div className="eyebrow">Storico annuale</div>
-          <h2>Tredicesima e ferie</h2>
+          <h2>Tredicesima</h2>
         </div>
       </div>
       <div className="ledger-list">
         {anni.map((y) => {
-          const ferie = calcolaFerieAnno(data.timeEntries, worker.rateHistory, data.vacations.settings, y)
           const tredicesima = calcolaTredicesima(data.timeEntries, worker.rateHistory, y)
           return (
             <div className="ledger-row" key={y}>
               <span className="rdate mono">{y}</span>
-              <span className="rtype">
-                Ferie {formatGiorni(ferie.daysAccrued - ferie.daysTaken)}gg residue
-              </span>
               <span className="rhours mono">{formatEuro(tredicesima)}</span>
             </div>
           )
