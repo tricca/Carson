@@ -15,7 +15,18 @@ import { addRateChange, type NewRateInput } from '../domain/calculations/rates'
 import { addContributionRateChange, type NewContributionRateInput } from '../domain/calculations/contributionRates'
 import { loadInitialData, saveData, onSyncStatusChange, restoreFromRemote, type SyncStatus } from '../storage/syncEngine'
 import { isConnected } from '../dropbox/authClient'
-import { downloadBrandingImage } from '../dropbox/dataStore'
+import { downloadBrandingImage, uploadAttachment } from '../dropbox/dataStore'
+import {
+  CONTRIBUTION_DOCUMENT_KINDS,
+  collegaDocumentiContributo,
+  contributionDocumentFileName,
+  contributionDocumentPath,
+  idsDocumentiContributo,
+  scollegaDocumentiContributo,
+  type ContributionDocumentKind,
+  type ContributionDocuments,
+  type UploadedDocument,
+} from '../domain/attachments'
 
 interface AppState {
   data: AppData
@@ -47,7 +58,11 @@ interface AppState {
    * salvato lo aggiorna (correzione o passaggio da "da_pagare" a "pagato"), altrimenti ne
    * crea uno nuovo già pagato. Il monte ore e gli importi arrivano già decisi dalla UI
    * (eventualmente corretti a mano rispetto alla proposta calcolata) — lo store non
-   * ricalcola nulla, si limita a salvare quello che l'utente ha confermato. */
+   * ricalcola nulla, si limita a salvare quello che l'utente ha confermato.
+   *
+   * `documenti` (bollettino/ricevuta in PDF) vengono caricati su Dropbox PRIMA di salvare:
+   * se l'upload fallisce l'azione lancia e il versamento non viene registrato, così non
+   * resta nulla di mezzo e l'utente può riprovare dalla stessa schermata. */
   salvaVersamentoContributo: (input: {
     id?: string
     year: number
@@ -61,9 +76,13 @@ interface AppState {
     cuafExcluded: boolean
     paidAt: string
     note?: string
-  }) => void
+  }, documenti?: ContributionDocuments) => Promise<void>
+  /** Carica (o sostituisce) un solo documento di un versamento già registrato, senza
+   * toccare importi e ore: per allegare la ricevuta a posteriori. Lancia se l'upload fallisce. */
+  allegaDocumentoContributo: (contributionId: string, kind: ContributionDocumentKind, file: File) => Promise<void>
   /** Rimuove il versamento salvato: il trimestre torna a comparire come proposta
-   * previsionale calcolata dalle ore reali, finché non lo si registra di nuovo. */
+   * previsionale calcolata dalle ore reali, finché non lo si registra di nuovo. I documenti
+   * collegati vengono scollegati ma i file restano su Dropbox. */
   deleteContribution: (contributionId: string) => void
   /** Lancia un errore (da mostrare all'utente) se `validFrom` non è successivo alla tariffa in vigore. */
   updateRate: (input: NewRateInput) => void
@@ -79,6 +98,23 @@ interface AppState {
 
 function touch(): string {
   return new Date().toISOString()
+}
+
+/** Carica su Dropbox i documenti scelti, ciascuno nel percorso deterministico del trimestre. */
+async function caricaDocumentiContributo(
+  year: number,
+  quarter: number,
+  documenti: ContributionDocuments,
+): Promise<UploadedDocument[]> {
+  const uploaded: UploadedDocument[] = []
+  for (const kind of CONTRIBUTION_DOCUMENT_KINDS) {
+    const file = documenti[kind]
+    if (!file) continue
+    const dropboxPath = contributionDocumentPath(year, quarter, kind)
+    await uploadAttachment(dropboxPath, file)
+    uploaded.push({ kind, dropboxPath, fileName: contributionDocumentFileName(year, quarter, kind) })
+  }
+  return uploaded
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -163,9 +199,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     saveData(data)
   },
 
-  salvaVersamentoContributo: (input) => {
+  salvaVersamentoContributo: async (input, documenti = {}) => {
+    const uploaded = await caricaDocumentiContributo(input.year, input.quarter, documenti)
+
+    // Lo stato si legge solo dopo l'upload: può richiedere secondi, e nel frattempo altre
+    // modifiche salvate altrove nell'app andrebbero perse scrivendo uno snapshot più vecchio.
     const state = get().data
     const esistente = input.id ? state.quarterlyContributions.find((c) => c.id === input.id) : undefined
+    const contributionId = esistente?.id ?? crypto.randomUUID()
+    const attachments = collegaDocumentiContributo(state.attachments, contributionId, uploaded, touch())
+    const attachmentIds = idsDocumentiContributo(attachments, contributionId)
 
     const quarterlyContributions = esistente
       ? state.quarterlyContributions.map((c) =>
@@ -181,13 +224,14 @@ export const useAppStore = create<AppState>((set, get) => ({
                 status: 'pagato' as const,
                 paidAt: input.paidAt,
                 note: input.note || c.note,
+                attachmentIds,
                 updatedAt: touch(),
               }
             : c,
         )
       : [
           {
-            id: crypto.randomUUID(),
+            id: contributionId,
             year: input.year,
             quarter: input.quarter,
             dueDate: input.dueDate,
@@ -200,21 +244,45 @@ export const useAppStore = create<AppState>((set, get) => ({
             status: 'pagato' as const,
             paidAt: input.paidAt,
             note: input.note,
-            attachmentIds: [],
+            attachmentIds,
             updatedAt: touch(),
           } satisfies QuarterlyContribution,
           ...state.quarterlyContributions,
         ]
 
-    const data: AppData = { ...state, quarterlyContributions }
+    const data: AppData = { ...state, quarterlyContributions, attachments }
+    set({ data })
+    saveData(data)
+  },
+
+  allegaDocumentoContributo: async (contributionId, kind, file) => {
+    const contribution = get().data.quarterlyContributions.find((c) => c.id === contributionId)
+    if (!contribution) throw new Error('Versamento non trovato')
+    const uploaded = await caricaDocumentiContributo(contribution.year, contribution.quarter, { [kind]: file })
+
+    // Rilegge lo stato dopo l'upload (vedi salvaVersamentoContributo). Se nel frattempo il
+    // versamento è stato eliminato il file resta su Dropbox ma non c'è più nulla a cui collegarlo.
+    const state = get().data
+    if (!state.quarterlyContributions.some((c) => c.id === contributionId)) return
+    const attachments = collegaDocumentiContributo(state.attachments, contributionId, uploaded, touch())
+    const attachmentIds = idsDocumentiContributo(attachments, contributionId)
+    const data: AppData = {
+      ...state,
+      attachments,
+      quarterlyContributions: state.quarterlyContributions.map((c) =>
+        c.id === contributionId ? { ...c, attachmentIds, updatedAt: touch() } : c,
+      ),
+    }
     set({ data })
     saveData(data)
   },
 
   deleteContribution: (contributionId) => {
+    const state = get().data
     const data: AppData = {
-      ...get().data,
-      quarterlyContributions: get().data.quarterlyContributions.filter((c) => c.id !== contributionId),
+      ...state,
+      quarterlyContributions: state.quarterlyContributions.filter((c) => c.id !== contributionId),
+      attachments: scollegaDocumentiContributo(state.attachments, contributionId),
     }
     set({ data })
     saveData(data)

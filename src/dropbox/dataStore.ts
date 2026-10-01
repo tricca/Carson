@@ -3,7 +3,6 @@ import { AppDataSchema, type AppData } from '../domain/types'
 import { getValidAccessToken } from './authClient'
 
 const DATA_FILE_PATH = '/data/housekeeping-data.json'
-const ATTACHMENTS_DIR = '/allegati'
 const BRANDING_IMAGE_PATH = '/branding/carson-icon.png'
 
 export class DropboxConflictError extends Error {
@@ -87,11 +86,15 @@ export async function uploadData(data: AppData, rev: string | null): Promise<str
   }
 }
 
-export async function uploadAttachment(fileName: string, file: Blob): Promise<string> {
+/**
+ * Carica un allegato al percorso indicato (le cartelle mancanti le crea Dropbox). Se il file
+ * esiste già lo sovrascrive: il percorso è deterministico per documento, quindi ricaricarlo
+ * (per correggerlo o dopo un tentativo fallito) non deve lasciare copie "(1)" in giro. La
+ * versione precedente resta comunque recuperabile dalla cronologia di Dropbox.
+ */
+export async function uploadAttachment(path: string, file: Blob): Promise<void> {
   const dbx = await getClient()
-  const path = `${ATTACHMENTS_DIR}/${crypto.randomUUID()}-${fileName}`
-  await dbx.filesUpload({ path, contents: file, mode: { '.tag': 'add' }, autorename: true })
-  return path
+  await dbx.filesUpload({ path, contents: file, mode: { '.tag': 'overwrite' }, mute: true })
 }
 
 export async function getAttachmentTemporaryLink(path: string): Promise<string> {

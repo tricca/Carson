@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore'
 import { Sheet } from '../components/Sheet'
 import { Stamp } from '../components/Stamp'
 import { WeeklyRecap } from '../components/WeeklyRecap'
+import { ContributionDocumentPicker, ContributionDocuments } from '../components/ContributionDocuments'
 import {
   calcolaContributoDaOre,
   contributoTrimestraleAggiornato,
@@ -18,6 +19,8 @@ import { getRateAt } from '../domain/calculations/rates'
 import { calcolaTfrRivalutato } from '../domain/calculations/tfr'
 import { calcolaCud, incongruenza } from '../domain/calculations/cud'
 import { formatDataEstesa, formatEuro, formatOre, toLocalIsoDate } from '../domain/format'
+import { documentiContributo, type ContributionDocumentKind, type ContributionDocuments as PickedDocuments } from '../domain/attachments'
+import { messaggioErroreDocumenti } from '../dropbox/attachmentErrors'
 import type { QuarterlyContribution } from '../domain/types'
 
 const REGIME_LABEL: Record<QuarterlyContribution['regime'], string> = {
@@ -51,6 +54,7 @@ export function Contributi() {
   const employer = useAppStore((s) => s.data.settings.employer)
   const payments = useAppStore((s) => s.data.payments)
   const thirteenthMonth = useAppStore((s) => s.data.thirteenthMonth)
+  const attachments = useAppStore((s) => s.data.attachments)
   const contributionRateHistory = useAppStore((s) => s.data.settings.contributionRateHistory)
   const tfrRevaluationRates = useAppStore((s) => s.data.settings.tfrRevaluationRates)
   const salvaVersamentoContributo = useAppStore((s) => s.salvaVersamentoContributo)
@@ -59,6 +63,9 @@ export function Contributi() {
   const [oreCorrette, setOreCorrette] = useState('0')
   const [paidAt, setPaidAt] = useState(todayIso())
   const [nota, setNota] = useState('')
+  const [documenti, setDocumenti] = useState<PickedDocuments>({})
+  const [salvando, setSalvando] = useState(false)
+  const [erroreSalvataggio, setErroreSalvataggio] = useState<string | null>(null)
   const [toDelete, setToDelete] = useState<QuarterlyContribution | null>(null)
   const [sezione, setSezione] = useState<Sezione>('contributi')
   const [cudCopiato, setCudCopiato] = useState(false)
@@ -131,11 +138,27 @@ TFR corrisposto (anche tramite anticipi) di: `
     setTimeout(() => setCudCopiato(false), 2000)
   }
 
+  function resetDocumenti() {
+    setDocumenti({})
+    setErroreSalvataggio(null)
+  }
+
+  function scegliDocumento(kind: ContributionDocumentKind, file: File | null) {
+    setErroreSalvataggio(null)
+    setDocumenti((prev) => {
+      const next = { ...prev }
+      if (file) next[kind] = file
+      else delete next[kind]
+      return next
+    })
+  }
+
   function apriConfermaEsistente(c: QuarterlyContribution) {
     const oreReali = oreTrimestre(timeEntries, quarterRange(c.year, c.quarter))
     setOreCorrette(formatNumeroIt(oreReali))
     setPaidAt(c.paidAt ?? todayIso())
     setNota(c.note ?? '')
+    resetDocumenti()
     setTarget({ kind: 'existing', contribution: c })
   }
 
@@ -143,6 +166,7 @@ TFR corrisposto (anche tramite anticipi) di: `
     setOreCorrette(formatNumeroIt(p.periodHours))
     setPaidAt(todayIso())
     setNota('')
+    resetDocumenti()
     setTarget({ kind: 'proposal', proposta: p })
   }
 
@@ -172,23 +196,36 @@ TFR corrisposto (anche tramite anticipi) di: `
     }
   }
 
-  function confermaVersamento() {
+  async function confermaVersamento() {
     if (!target || !targetInfo || !anteprima) return
-    salvaVersamentoContributo({
-      id: target.kind === 'existing' ? target.contribution.id : undefined,
-      year: targetInfo.year,
-      quarter: targetInfo.quarter,
-      dueDate: targetInfo.dueDate,
-      periodHours: anteprima.periodHours,
-      regime: anteprima.regime,
-      amountTotal: anteprima.amountTotal,
-      amountEmployer: anteprima.amountEmployer,
-      amountWorker: anteprima.amountWorker,
-      cuafExcluded: targetInfo.cuafExcluded,
-      paidAt,
-      note: nota.trim() || undefined,
-    })
-    setTarget(null)
+    setErroreSalvataggio(null)
+    setSalvando(true)
+    try {
+      await salvaVersamentoContributo(
+        {
+          id: target.kind === 'existing' ? target.contribution.id : undefined,
+          year: targetInfo.year,
+          quarter: targetInfo.quarter,
+          dueDate: targetInfo.dueDate,
+          periodHours: anteprima.periodHours,
+          regime: anteprima.regime,
+          amountTotal: anteprima.amountTotal,
+          amountEmployer: anteprima.amountEmployer,
+          amountWorker: anteprima.amountWorker,
+          cuafExcluded: targetInfo.cuafExcluded,
+          paidAt,
+          note: nota.trim() || undefined,
+        },
+        documenti,
+      )
+      setTarget(null)
+    } catch (err) {
+      // Se i documenti non partono il versamento non viene registrato: la schermata resta
+      // aperta coi file già scelti, si può riprovare o confermare senza documenti.
+      setErroreSalvataggio(`${messaggioErroreDocumenti(err)} Il versamento non è stato registrato.`)
+    } finally {
+      setSalvando(false)
+    }
   }
 
   function confermaEliminazione() {
@@ -339,6 +376,8 @@ TFR corrisposto (anche tramite anticipi) di: `
 
             {c.note && <p className="card-sub" style={{ marginTop: 8 }}>{c.note}</p>}
 
+            <ContributionDocuments contributionId={c.id} />
+
             <details className="disclosure">
               <summary>Dettaglio calcolo</summary>
               <div className="dbody">
@@ -484,7 +523,9 @@ TFR corrisposto (anche tramite anticipi) di: `
 
       <Sheet
         open={target !== null}
-        onClose={() => setTarget(null)}
+        onClose={() => {
+          if (!salvando) setTarget(null)
+        }}
         title={targetInfo ? `Registra versamento — ${targetInfo.quarter}° trimestre ${targetInfo.year}` : ''}
       >
         {target && targetInfo && (
@@ -519,12 +560,32 @@ TFR corrisposto (anche tramite anticipi) di: `
               onChange={(e) => setNota(e.target.value)}
             />
 
+            {target.kind === 'proposal' && (
+              <>
+                <div className="field-label">Documenti (PDF, facoltativi)</div>
+                <ContributionDocumentPicker
+                  year={targetInfo.year}
+                  quarter={targetInfo.quarter}
+                  documenti={documenti}
+                  onChange={scegliDocumento}
+                  onInvalid={setErroreSalvataggio}
+                  disabled={salvando}
+                />
+              </>
+            )}
+
+            {erroreSalvataggio && (
+              <p className="card-sub" style={{ marginTop: 12, color: 'var(--stamp)' }}>
+                {erroreSalvataggio}
+              </p>
+            )}
+
             <div className="sheet-actions">
-              <button type="button" className="btn ghost auto" onClick={() => setTarget(null)}>
+              <button type="button" className="btn ghost auto" onClick={() => setTarget(null)} disabled={salvando}>
                 Annulla
               </button>
-              <button type="button" className="btn primary" onClick={confermaVersamento} disabled={!anteprima}>
-                Conferma versamento
+              <button type="button" className="btn primary" onClick={() => void confermaVersamento()} disabled={!anteprima || salvando}>
+                {salvando ? 'Salvataggio…' : 'Conferma versamento'}
               </button>
             </div>
           </>
@@ -538,6 +599,8 @@ TFR corrisposto (anche tramite anticipi) di: `
               {toDelete.quarter}&deg; trimestre {toDelete.year} &middot; {formatEuro(toDelete.amountTotal)}
               {toDelete.status === 'pagato' ? ' · già segnato come versato' : ''}. Il trimestre torna a comparire
               come proposta previsionale calcolata dalle ore reali.
+              {Object.keys(documentiContributo(attachments, toDelete.id)).length > 0 &&
+                ' I documenti allegati restano su Dropbox, ma non saranno più collegati.'}
             </p>
             <div className="sheet-actions">
               <button type="button" className="btn ghost auto" onClick={() => setToDelete(null)}>

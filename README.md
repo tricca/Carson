@@ -26,6 +26,11 @@ pagato con data e nota. Elenco filtrabile per anno.
   versamento si può correggere a mano il monte ore prima di salvare. I trimestri già
   versati restano storicamente congelati, ma sono modificabili o eliminabili in qualsiasi
   momento (tornano a essere una proposta). Elenco filtrabile per anno.
+  Ogni versamento può avere due **documenti PDF** — bollettino e ricevuta di pagamento — da
+  allegare già in fase di registrazione oppure dopo, dalla scheda del trimestre (dove si
+  aprono e si possono sostituire). Vengono salvati su Dropbox in
+  `allegati/contributi-inps/` con un nome leggibile (`2026-T2 Contributi INPS - Bollettino.pdf`,
+  `2026-T2 Contributi INPS - Ricevuta di pagamento.pdf`).
 - *Altro*: TFR maturato (rivalutato anno su anno coi coefficienti ISTAT ufficiali) e il
   testo della dichiarazione sostitutiva del CUD dell'anno precedente, già compilato e
   pronto da copiare — con un confronto automatico fra gli importi realmente registrati e
@@ -99,6 +104,12 @@ Un unico documento JSON (`AppData`, schema in `domain/types.ts`):
 - `thirteenthMonth[]` — tredicesime effettivamente pagate.
 - `settings` — importo contributivo orario storicizzato, coefficienti di rivalutazione TFR,
   dati del datore di lavoro.
+- `attachments[]` — riferimenti ai documenti caricati su Dropbox (percorso, tipo, entità
+  collegata). Oggi usato per bollettino e ricevuta dei versamenti INPS; il PDF vive nel
+  Dropbox dell'utente, nel JSON c'è solo il riferimento. Il percorso è deterministico
+  (anno + trimestre + tipo): ricaricare un documento sovrascrive il file, e la versione
+  precedente resta nella cronologia di Dropbox. Eliminando un versamento i documenti vengono
+  scollegati ma i file **non** vengono cancellati da Dropbox.
 
 ## Sviluppo
 
