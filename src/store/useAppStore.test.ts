@@ -62,6 +62,23 @@ describe('salvaVersamentoContributo con documenti', () => {
     expect(saveData).toHaveBeenCalledTimes(1)
   })
 
+  it('carica anche il documento di pagamento, salvato come "altro" per compatibilità di schema', async () => {
+    await useAppStore.getState().salvaVersamentoContributo(versamento, {
+      bollettino: pdf('b.pdf'),
+      ricevuta: pdf('r.pdf'),
+      altro: pdf('d.pdf'),
+    })
+
+    expect(vi.mocked(uploadAttachment).mock.calls.map(([path]) => path)).toEqual([
+      '/allegati/contributi-inps/2026-T2 Contributi INPS - Bollettino.pdf',
+      '/allegati/contributi-inps/2026-T2 Contributi INPS - Ricevuta di pagamento.pdf',
+      '/allegati/contributi-inps/2026-T2 Contributi INPS - Documento di pagamento.pdf',
+    ])
+    const { attachments, quarterlyContributions } = useAppStore.getState().data
+    expect(attachments.map((a) => a.kind).toSorted()).toEqual(['altro', 'bollettino', 'ricevuta'])
+    expect(quarterlyContributions[0].attachmentIds).toHaveLength(3)
+  })
+
   it('se l\'upload fallisce lancia e non registra né versamento né allegati', async () => {
     vi.mocked(uploadAttachment).mockRejectedValue(new Error('offline'))
 

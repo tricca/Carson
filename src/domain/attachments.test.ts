@@ -26,6 +26,7 @@ describe('nomi e percorsi dei documenti', () => {
   it('nome leggibile con anno, trimestre e tipo', () => {
     expect(contributionDocumentFileName(2026, 2, 'bollettino')).toBe('2026-T2 Contributi INPS - Bollettino.pdf')
     expect(contributionDocumentFileName(2026, 2, 'ricevuta')).toBe('2026-T2 Contributi INPS - Ricevuta di pagamento.pdf')
+    expect(contributionDocumentFileName(2026, 2, 'altro')).toBe('2026-T2 Contributi INPS - Documento di pagamento.pdf')
   })
 
   it('percorso Dropbox deterministico dentro /allegati/contributi-inps', () => {
@@ -51,10 +52,13 @@ describe('documentiContributo', () => {
       attachment({ id: 'a3', kind: 'bollettino', linkedEntityId: 'altro' }),
       attachment({ id: 'a4', kind: 'bollettino', linkedEntityType: 'payment' }),
       attachment({ id: 'a5', kind: 'altro' }),
+      attachment({ id: 'a6', kind: 'mav' }),
     ]
     const docs = documentiContributo(list, 'c1')
     expect(docs.bollettino?.id).toBe('a1')
     expect(docs.ricevuta?.id).toBe('a2')
+    expect(docs.altro?.id).toBe('a5')
+    expect(Object.keys(docs)).toHaveLength(3)
   })
 
   it('se ce n\'è più d\'uno per lo stesso tipo vince il più recente', () => {

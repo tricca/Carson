@@ -17,6 +17,7 @@ import { DocumentIcon } from './icons'
 const MISSING_LABEL: Record<ContributionDocumentKind, string> = {
   bollettino: 'Bollettino non allegato',
   ricevuta: 'Ricevuta non allegata',
+  altro: 'Documento di pagamento non allegato',
 }
 
 interface PdfChooserProps {

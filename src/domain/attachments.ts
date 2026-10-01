@@ -1,13 +1,20 @@
 import type { Attachment } from './types'
 
-/** I due documenti che accompagnano il versamento di un trimestre INPS. */
-export type ContributionDocumentKind = Extract<Attachment['kind'], 'bollettino' | 'ricevuta'>
+/** I documenti che accompagnano il versamento di un trimestre INPS.
+ *
+ * Il "documento di pagamento" è salvato con `kind: 'altro'`, valore che l'enum di
+ * `AttachmentSchema` già contiene: aggiungerne uno nuovo renderebbe il file Dropbox non
+ * valido per le versioni precedenti dell'app (cache PWA che resta indietro su iOS), che
+ * smetterebbero di sincronizzare finché non vengono aggiornate. Se in futuro serve un altro
+ * tipo di allegato per i versamenti, quello sarà il momento di introdurre un valore dedicato. */
+export type ContributionDocumentKind = Extract<Attachment['kind'], 'bollettino' | 'ricevuta' | 'altro'>
 
-export const CONTRIBUTION_DOCUMENT_KINDS: readonly ContributionDocumentKind[] = ['bollettino', 'ricevuta']
+export const CONTRIBUTION_DOCUMENT_KINDS: readonly ContributionDocumentKind[] = ['bollettino', 'ricevuta', 'altro']
 
 export const CONTRIBUTION_DOCUMENT_LABEL: Record<ContributionDocumentKind, string> = {
   bollettino: 'Bollettino',
   ricevuta: 'Ricevuta di pagamento',
+  altro: 'Documento di pagamento',
 }
 
 /** File ancora da caricare, uno per tipo. */
@@ -35,6 +42,10 @@ export function contributionDocumentPath(year: number, quarter: number, kind: Co
   return `${CONTRIBUTION_DOCUMENTS_DIR}/${contributionDocumentFileName(year, quarter, kind)}`
 }
 
+function isContributionDocumentKind(kind: Attachment['kind']): kind is ContributionDocumentKind {
+  return (CONTRIBUTION_DOCUMENT_KINDS as readonly string[]).includes(kind)
+}
+
 export function isPdf(file: { name: string; type: string }): boolean {
   return file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
 }
@@ -52,7 +63,7 @@ export function documentiContributo(
   const result: Partial<Record<ContributionDocumentKind, Attachment>> = {}
   for (const a of attachments) {
     if (!isContributionDocument(a, contributionId)) continue
-    if (a.kind !== 'bollettino' && a.kind !== 'ricevuta') continue
+    if (!isContributionDocumentKind(a.kind)) continue
     const current = result[a.kind]
     if (!current || a.uploadedAt > current.uploadedAt) result[a.kind] = a
   }
