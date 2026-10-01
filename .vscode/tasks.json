@@ -1,0 +1,90 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "install",
+			"type": "shell",
+			"command": "npm install",
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"focus": false
+			},
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"shell": {
+					"executable": "/bin/zsh",
+					"args": ["-il", "-c"]
+				},
+				"statusbar": {
+					"hide": false,
+					"label": "$(cloud-download) install",
+					"detail": "Installa le dipendenze (npm install)",
+					"running": {
+						"label": "$(sync~spin) install",
+						"color": "terminal.ansiYellow"
+					}
+				}
+			}
+		},
+		{
+			"label": "dev",
+			"type": "shell",
+			"command": "npm run dev",
+			"isBackground": true,
+			"problemMatcher": [],
+			"runOptions": {
+				"instanceLimit": 1
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated",
+				"focus": false
+			},
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"shell": {
+					"executable": "/bin/zsh",
+					"args": ["-il", "-c"]
+				},
+				"statusbar": {
+					"hide": false,
+					"label": "$(play) dev",
+					"detail": "Avvia Vite in development sulla porta 6001",
+					"running": {
+						"label": "$(sync~spin) dev",
+						"color": "terminal.ansiYellow"
+					}
+				}
+			}
+		},
+		{
+			"label": "publish",
+			"type": "shell",
+			"command": "git push origin HEAD",
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"focus": false
+			},
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"shell": {
+					"executable": "/bin/zsh",
+					"args": ["-il", "-c"]
+				},
+				"statusbar": {
+					"hide": false,
+					"label": "$(cloud-upload) publish",
+					"detail": "Push su origin: GitHub Actions pubblica su GitHub Pages",
+					"running": {
+						"label": "$(sync~spin) publish",
+						"color": "terminal.ansiYellow"
+					}
+				}
+			}
+		}
+	]
+}
