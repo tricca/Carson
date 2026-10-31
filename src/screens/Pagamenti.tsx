@@ -35,6 +35,8 @@ export function Pagamenti() {
       return dataA < dataB ? 1 : dataA > dataB ? -1 : 0
     })
 
+  const totalePagatoAnno = ordinati.filter((p) => p.status === 'pagato').reduce((somma, p) => somma + p.amountDue, 0)
+
   // Le proposte riguardano sempre ore recenti non ancora fatturate: hanno senso solo
   // guardando l'anno corrente, non sfogliando un anno passato.
   const proposte = annoSelezionato === oggiAnno ? proposteRetribuzione(timeEntries, rateHistory, payments) : []
@@ -133,6 +135,12 @@ export function Pagamenti() {
       </div>
 
       {ordinati.length === 0 && <p className="card-sub">Nessun pagamento registrato nel {annoSelezionato}</p>}
+      {ordinati.length > 0 && (
+        <div className="ledger-card">
+          <div className="stat-label">Totale pagato nel {annoSelezionato}</div>
+          <div className="stat-value mono">{formatEuro(totalePagatoAnno)}</div>
+        </div>
+      )}
       {ordinati.map((p) => (
         <div className="ledger-card pay-card" key={p.id} style={{ marginTop: 16 }}>
           {p.status === 'pagato' && p.paidAt && <Stamp label="PAGATO" date={p.paidAt.split('-').reverse().join('/')} />}
